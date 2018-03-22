@@ -214,7 +214,7 @@ if [ "${TRIGGER_TYPE}" == "alpine_repo" ]; then
   docker pull alpine:${DIST_TAG}
   # Determine the current tag
   CURRENT_PACKAGE=$(docker run --rm alpine:${DIST_TAG} sh -c 'apk update --repository ${DIST_REPO} --quiet\
-  && apk info --repository ${DIST_REPO} '"${DIST_PACKAGES}"' | md5sum | cut -c1-8')
+  && apk info --repository ${DIST_REPO} '"${DIST_REPO_PACKAGES}"' | md5sum | cut -c1-8')
   # If the current tag does not match the external release then trigger a build
   if [ "${CURRENT_PACKAGE}" != "${EXTERNAL_TAG}" ]; then
     TRIGGER_REASON="An Alpine repo package change was detected for ${LS_REPO} old md5:${EXTERNAL_TAG} new md5:${CURRENT_PACKAGE}"
