@@ -7,6 +7,7 @@
 # alpine_package - an array of alpine packages is passed and all their versions are taken from head an md5 is generated to tag their version
 # ubuntu_package - an array of alpine packages is passed and all their versions are taken from head an md5 is generated to tag their version
 # deb_repo - One or more external repos is used to check an array of packages versions and generate an md5 hash
+# alpine_repo - One external repo is used to check an array of packages versions and generate an md5 hash
 # external_blob - An external file blob is downloaded and an md5 is generated to determine the external version
 
 ################
@@ -199,6 +200,24 @@ if [ "${TRIGGER_TYPE}" == "external_blob" ]; then
     echo "ext: ${EXTERNAL_TAG}"
     echo "current:${CURRENT_MD5}"
     TRIGGER_REASON="An external file change was detected for ${LS_REPO} at the URL:${EXT_BLOB} old md5:${EXTERNAL_TAG} new md5:${CURRENT_MD5}"
+    trigger_build
+  else
+    echo "Nothing to do release is up to date"
+  fi
+fi
+
+
+# This is an Alpine repo trigger
+if [ "${TRIGGER_TYPE}" == "alpine_repo" ]; then
+  echo "This is an alpine package trigger"
+  # Pull the latest alpine image
+  docker pull alpine:${DIST_TAG}
+  # Determine the current tag
+  CURRENT_PACKAGE=$(docker run --rm alpine:${DIST_TAG} sh -c 'apk update --repository ${DIST_REPO} --quiet\
+  && apk info --repository ${DIST_REPO} '"${DIST_PACKAGES}"' | md5sum | cut -c1-8')
+  # If the current tag does not match the external release then trigger a build
+  if [ "${CURRENT_PACKAGE}" != "${EXTERNAL_TAG}" ]; then
+    TRIGGER_REASON="An Alpine repo package change was detected for ${LS_REPO} old md5:${EXTERNAL_TAG} new md5:${CURRENT_PACKAGE}"
     trigger_build
   else
     echo "Nothing to do release is up to date"
