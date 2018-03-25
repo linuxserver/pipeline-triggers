@@ -170,10 +170,10 @@ if [ "${TRIGGER_TYPE}" == "deb_repo" ]; then
   # Pull the latest image
   docker pull ${DIST_IMAGE}:${DIST_TAG}
   # Determine the current tag
-  CURRENT_PACKAGE=$(docker run --rm ${DIST_IMAGE}:${DIST_TAG} sh -c\
-                    'echo "${DIST_REPO}" > /etc/apt/sources.list.d/check.list \
+  CURRENT_PACKAGE=$(docker run --rm ${DIST_IMAGE}:${DIST_TAG} bash -c\
+                    'echo -e "'"${DIST_REPO}"'" > /etc/apt/sources.list.d/check.list \
                      && apt-get --allow-unauthenticated update -qq >/dev/null 2>&1\
-                     && apt-cache --no-all-versions show ${DIST_PACKAGES} | md5sum | cut -c1-8')
+                     && apt-cache --no-all-versions show '"${DIST_REPO_PACKAGES}"' | md5sum | cut -c1-8')
   # If the current tag does not match the external release then trigger a build
   if [ "${CURRENT_PACKAGE}" != "${EXTERNAL_TAG}" ]; then
     TRIGGER_REASON="A Debian package update has been detected for the ${LS_REPO} old md5:${EXTERNAL_TAG} new md5:${CURRENT_PACKAGE}"
