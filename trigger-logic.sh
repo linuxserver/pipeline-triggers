@@ -188,10 +188,10 @@ if [ "${TRIGGER_TYPE}" == "external_blob" ]; then
   echo "This is an External file blob package trigger"
   # Determine the current md5 for the file blob
     # Make sure the remote file returns a 200 status or fail
-    if [ $(curl -I -sL -w "%{http_code}" ${EXT_BLOB} -o /dev/null) == 200 ]; then
-      CURRENT_MD5=$(curl -s -L ${EXT_BLOB} | md5sum | cut -c1-8)
+    if [ $(curl -I -sL -w "%{http_code}" "${EXT_BLOB}" -o /dev/null) == 200 ]; then
+      CURRENT_MD5=$(curl -s -L "${EXT_BLOB}" | md5sum | cut -c1-8)
     else
-      FAILURE_REASON="Unable to get the URL:${EXT_BLOB} for ${LS_REPO} make sure URLs used to trigger are up to date"
+      FAILURE_REASON='Unable to get the URL:'"${EXT_BLOB}"' for '"${LS_REPO}"' make sure URLs used to trigger are up to date'
       tell_discord_fail
       exit 0
     fi
@@ -199,7 +199,7 @@ if [ "${TRIGGER_TYPE}" == "external_blob" ]; then
   if [ "${CURRENT_MD5}" != "${EXTERNAL_TAG}" ]; then
     echo "ext: ${EXTERNAL_TAG}"
     echo "current:${CURRENT_MD5}"
-    TRIGGER_REASON="An external file change was detected for ${LS_REPO} at the URL:${EXT_BLOB} old md5:${EXTERNAL_TAG} new md5:${CURRENT_MD5}"
+    TRIGGER_REASON='An external file change was detected for '"${LS_REPO}"' at the URL:'"${EXT_BLOB}"' old md5:'"${EXTERNAL_TAG}"' new md5:'"${CURRENT_MD5}"
     trigger_build
   else
     echo "Nothing to do release is up to date"
