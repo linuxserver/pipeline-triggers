@@ -1,6 +1,6 @@
 # LinuxServer.io Build Environment
 
-##Intro
+## Intro
 
 The purpose of this document is to be an evolving written explanation of the current state of the build system surrounding the LinuxServer.io Docker containers. It revolves around some core concepts: 
 
@@ -18,7 +18,7 @@ The purpose of this document is to be an evolving written explanation of the cur
  
  - The build logic should stay generalized where possible to be easily and quickly templated to new projects.
  
-##The basics
+## The basics
 
 Given the general theme of LinuxServer we operate our own build servers and slaves using Jenkins. All of our repositories are hosted on github https://github.com/linuxserver . 
 
