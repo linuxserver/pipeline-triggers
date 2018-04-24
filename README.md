@@ -280,3 +280,25 @@ if [ ! -d /config/www/muximux ]; then
   rm -f /tmp/muximux.tar.gz
 fi
 ```
+
+#### Setting up a Jenkins Build slave
+
+Jenkins build slaves work by being accessable via SSH and having some core programs installed we use for the build process here is an example of configuration on a Debian Server. 
+
+```
+apt-get update && apt-get install apt-transport-https ca-certificates curl gnupg2 software-properties-common jq git default-jre
+add-apt-repository    "deb [arch=amd64] https://download.docker.com/linux/$(. /etc/os-release; echo "$ID") \
+$(lsb_release -cs) \
+stable"
+apt-get update && apt-get install docker-ce -y
+```
+
+You will also want to add the following cron job to the machine to keep it from filling up with built images over time: 
+
+```
+0 0 * * 0 root /usr/bin/docker system prune -af
+```
+
+This will clear out the machine once a week.
+
+
