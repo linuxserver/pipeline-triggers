@@ -1,5 +1,28 @@
 # LinuxServer.io Build Environment
 
+- [LinuxServer.io Build Environment](#linuxserverio-build-environment)
+  * [Intro](#intro)
+  * [The basics](#the-basics)
+  * [Triggering a build](#triggering-a-build)
+      - [LinuxServer Github Commits](#linuxserver-github-commits)
+      - [External OS Package Change](#external-os-package--change)
+      - [External Software Change](#external-software-change)
+          + [Triggering based on changes in external JSON](#triggering-based-on-changes-in-external-json)
+          + [Triggering based on custom external releases](#triggering-based-on-custom-external-releases)
+  * [The JenkinsFile](#the-jenkinsfile)
+      - [Build Types](#build-types)
+      - [Header Variables](#header-variables)
+  * [Appendix](#appendix)
+      - [Repo Logic examples](#repo-logic-examples)
+          + [Use a git release tag to download the source code and extract it](#use-a-git-release-tag-to-download-the-source-code-and-extract-it)
+          + [Use a git release tag to download the source code and extract it when the package needed is not base source code](#use-a-git-release-tag-to-download-the-source-code-and-extract-it-when-the-package-needed-is-not-base-source-code)
+          + [Use a git commit tag to download the source code and extract it](#use-a-git-commit-tag-to-download-the-source-code-and-extract-it)
+          + [Use an NPM version tag to install a specific version](#use-an-npm-version-tag-to-install-a-specific-version)
+          + [Use an PIP version tag to install a specific version](#use-an-pip-version-tag-to-install-a-specific-version)
+          + [Set an ENV argument for post build installation](#set-an-env-argument-for-post-build-installation)
+      - [Multi Arch and cross-building](#multi-arch-and-cross-building)
+      - [Setting up a Jenkins Build slave](#setting-up-a-jenkins-build-slave)
+
 ## Intro
 
 The purpose of this document is to be an evolving written explanation of the current state of the build system surrounding the LinuxServer.io Docker containers. It revolves around some core concepts: 
@@ -281,6 +304,40 @@ if [ ! -d /config/www/muximux ]; then
 fi
 ```
 
+#### Multi Arch and cross-building
+
+When building applications some projects require building and pushing arm, and arm64 variants. To achieve this you must set the flag "MULTIARCH" to true in the Jenkinsfile and have a specific file structure in the repository. 
+
+```
+Dockerfile.amd64
+Dockerfile.armhf
+Dockerfile.aarch64
+qemu-aarch64-static
+qemu-arm-static
+```
+
+The Qemu binaries can be downloaded here ( swap out for a new version ) 
+
+https://github.com/multiarch/qemu-user-static/releases/download/v2.12.0/x86_64_qemu-aarch64-static.tar.gz
+https://github.com/multiarch/qemu-user-static/releases/download/v2.12.0/x86_64_qemu-arm-static.tar.gz
+
+The arm variants of the image need to copy these binaries to the image before running any RUN commands in the Dockerfile . IE: 
+
+```
+FROM lsiobase/alpine.nginx.arm64:3.7
+# Add qemu to build on x86_64 systems
+COPY qemu-aarch64-static /usr/bin
+```
+
+```
+FROM lsiobase/alpine.nginx.armhf:3.7
+# Add qemu to build on x86_64 systems
+COPY qemu-arm-static /usr/bin
+```
+
+This will push a manifest style tag to the DockerHub endpoint and allow users to download from any architecture using the same "latest" or specific tag. 
+
+
 #### Setting up a Jenkins Build slave
 
 Jenkins build slaves work by being accessable via SSH and having some core programs installed we use for the build process here is an example of configuration on a Debian Server. 
@@ -300,5 +357,19 @@ You will also want to add the following cron job to the machine to keep it from 
 ```
 
 This will clear out the machine once a week.
+
+To allow multi-arch builds first you need to register the interpreters with Docker using: 
+
+```
+docker run --rm --privileged multiarch/qemu-user-static:register --reset
+
+```
+
+Then enable experimental CLI features: 
+
+```
+echo '{"experimental": "enabled"}' > /root/.docker/config.json
+
+```
 
 
