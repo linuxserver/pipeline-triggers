@@ -61,7 +61,13 @@ pipeline {
                   	py2-pip'
     MULTIARCH='true'
     CI='false'
-    CI_URL='none'
+    CI_WEB='false'
+    CI_PORT=''
+    CI_SSL=''
+    CI_DELAY=''
+    CI_DOCKERENV='TZ=US/Pacific'
+    CI_AUTH=''
+    CI_WEBPATH=''
   }
   stages {
     // Setup all the basic environment variables needed for the build
@@ -191,6 +197,9 @@ pipeline {
          environment name: 'MULTIARCH', value: 'true'
        }
        steps {
+         sh "wget https://lsio-ci.ams3.digitaloceanspaces.com/qemu-aarch64-static"
+         sh "wget https://lsio-ci.ams3.digitaloceanspaces.com/qemu-arm-static"
+         sh "chmod +x qemu-*"
          sh "docker build --no-cache -f Dockerfile.amd64 -t ${DOCKERHUB_IMAGE}:amd64-${EXT_RELEASE}-ls${LS_TAG_NUMBER} \
          --build-arg ${BUILD_VERSION_ARG}=${EXT_RELEASE} --build-arg VERSION=\"${EXT_RELEASE}-pkg-${PACKAGE_TAG}-ls${LS_TAG_NUMBER}\" --build-arg BUILD_DATE=${GITHUB_DATE} ."
          sh "docker build --no-cache -f Dockerfile.armhf -t ${DOCKERHUB_IMAGE}:arm32v6-${EXT_RELEASE}-ls${LS_TAG_NUMBER} \
@@ -305,6 +314,7 @@ pipeline {
                 -e SECRET_KEY=\"${DO_SECRET}\" \
                 -e ACCESS_KEY=\"${DO_KEY}\" \
                 -e DOCKER_ENV=\"${CI_DOCKERENV}\" \
+                -e WEB_SCREENSHOT=\"${CI_WEB}\" \
                 -e WEB_AUTH=\"${CI_AUTH}\" \
                 -e WEB_PATH=\"${CI_WEBPATH}\" \
                 -e DO_REGION="ams3" \

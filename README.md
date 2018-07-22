@@ -200,6 +200,7 @@ A brief explanation of all of the variables used:
 - JSON_PATH- This is the path to the item you want to watch for changes and use for the version code on the build IE '.linux.x86_64.version'
 - MULTIARCH- if this will be built against the 3 architectures amd64, armhf, and arm64 (true/false)
 - CI- true/false to enable continuous integration
+- CI_WEB- true/false to enable screenshotting the web application for the CI process
 - CI_PORT- The port the application you are building listens on a web interface internally
 - CI_SSL- true/false to use an https endpoint to capture a screenshot of the endpoint
 - CI_DELAY- amount of time in seconds to wait after the container spins up to grab a screenshot
