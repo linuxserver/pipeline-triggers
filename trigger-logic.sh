@@ -132,12 +132,12 @@ if [ "${TRIGGER_TYPE}" == "alpine_package" ]; then
   # Determine the current tag
   CURRENT_PACKAGE=$(docker run --rm alpine:${DIST_TAG} sh -c 'apk update --quiet\
   && apk info '"${DIST_PACKAGES}"' | md5sum | cut -c1-8')
-  # If the current tag does not match the external release then trigger a build
-  if [ "${CURRENT_PACKAGE}" != "${PACKAGE_TAG}" ]; then
+  # If the current tag matches the build or it is not an 8 character string
+  if [ "${CURRENT_PACKAGE}" == "${PACKAGE_TAG}" ] || [ "${#CURRENT_PACKAGE}" != 8 ] || [ "${#PACKAGE_TAG}" != 8 ]; then
+    echo "Nothing to do release is up to date, or bad return from hash command"
+  elif [ "${CURRENT_PACKAGE}" != "${PACKAGE_TAG}" ]; then
     TRIGGER_REASON="An Alpine base package change was detected for ${LS_REPO} old md5:${PACKAGE_TAG} new md5:${CURRENT_PACKAGE}"
     trigger_build
-  else
-    echo "Nothing to do release is up to date"
   fi
 fi
 
@@ -150,12 +150,12 @@ if [ "${TRIGGER_TYPE}" == "ubuntu_package" ]; then
   CURRENT_PACKAGE=$(docker run --rm ubuntu:${DIST_TAG} sh -c\
                    'apt-get --allow-unauthenticated update -qq >/dev/null 2>&1 &&\
                     apt-cache --no-all-versions show '"${DIST_PACKAGES}"' | md5sum | cut -c1-8')
-  # If the current tag does not match the external release then trigger a build
-  if [ "${CURRENT_PACKAGE}" != "${PACKAGE_TAG}" ]; then
+  # If the current tag matches the build or it is not an 8 character string
+  if [ "${CURRENT_PACKAGE}" == "${PACKAGE_TAG}" ]  || [ "${#CURRENT_PACKAGE}" != 8 ] || [ "${#PACKAGE_TAG}" != 8 ]; then
+    echo "Nothing to do release is up to date, or bad return from hash command"
+  elif [ "${CURRENT_PACKAGE}" != "${PACKAGE_TAG}" ]; then
     TRIGGER_REASON="An Ubuntu base package change was detected for ${LS_REPO} old md5:${PACKAGE_TAG} new md5:${CURRENT_PACKAGE}"
     trigger_build
-  else
-    echo "Nothing to do release is up to date"
   fi
 fi
 
