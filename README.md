@@ -148,7 +148,7 @@ At the core of a the build process is a git stored build configuration that is u
 
 Templates for the different external release types can be found here:
 
-https://github.com/linuxserver/pipeline-triggers/blob/master/JenkinsFiles/
+https://github.com/linuxserver/pipeline-triggers/blob/master/Jenkinsfiles/
 
 #### Build Types
 
