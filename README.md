@@ -321,7 +321,7 @@ fi
 When building applications some projects require building and pushing arm, and arm64 variants. To achieve this you must set the flag "MULTIARCH" to true in the Jenkinsfile and have a specific file structure in the repository.
 
 ```
-Dockerfile.amd64
+Dockerfile
 Dockerfile.armhf
 Dockerfile.aarch64
 qemu-aarch64-static
