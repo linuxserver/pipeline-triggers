@@ -148,7 +148,7 @@ At the core of a the build process is a git stored build configuration that is u
 
 Templates for the different external release types can be found here:
 
-https://github.com/linuxserver/pipeline-triggers/blob/master/JenkinsFiles/
+https://github.com/linuxserver/pipeline-triggers/blob/master/Jenkinsfiles/
 
 #### Build Types
 
@@ -321,7 +321,7 @@ fi
 When building applications some projects require building and pushing arm, and arm64 variants. To achieve this you must set the flag "MULTIARCH" to true in the Jenkinsfile and have a specific file structure in the repository.
 
 ```
-Dockerfile.amd64
+Dockerfile
 Dockerfile.armhf
 Dockerfile.aarch64
 qemu-aarch64-static
