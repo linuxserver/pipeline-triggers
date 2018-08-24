@@ -12,6 +12,7 @@
   * [The JenkinsFile](#the-jenkinsfile)
       - [Build Types](#build-types)
       - [Header Variables](#header-variables)
+  * [Automating README updates](#automating-readme-updates)
   * [Appendix](#appendix)
       - [Repo Logic examples](#repo-logic-examples)
           + [Use a git release tag to download the source code and extract it](#use-a-git-release-tag-to-download-the-source-code-and-extract-it)
@@ -208,7 +209,96 @@ A brief explanation of all of the variables used:
 - CI_AUTH- if the web application requires basic authentication format user:password
 - CI_WEBPATH- custom path to use when capturing a screenshot of the web application
 
+## Automating README updates
 
+Another pain point we have as an organization is managing over 100 READMEs across Github and Dockerhub. The build process uses helper containers in conjunction with an in repo yaml file to template the README from a master template and push the updates to both Github and Dockerhub. 
+
+This means the repo will need a "readme-vars.yml file in the root of the repo, an example can be seen below: 
+
+```
+---
+
+# project information
+project_name: bookstack
+project_url: "https://github.com/BookStackApp/BookStack"
+project_logo: "https://s3-us-west-2.amazonaws.com/linuxserver-docs/images/bookstack-logo500x500.png"
+project_blurb: |
+  [{{ project_name|capitalize }}]({{ project_url }}) is a free and open source Wiki designed for creating beautiful documentation. Feautring a simple, but powerful WYSIWYG editor it allows for teams to create detailed and useful documentation with ease.
+
+  Powered by SQL and including a Markdown editor for those who prefer it, BookStack is geared towards making documentation more of a pleasure than a chore.
+
+  For more information on BookStack visit their website and check it out: https://www.bookstackapp.com
+project_lsio_github_repo_url: "https://github.com/linuxserver/docker-{{ project_name }}"
+
+# supported architectures
+available_architectures:
+  - { arch: "{{ arch_x86_64 }}", tag: "amd64-latest"}
+  - { arch: "{{ arch_arm64 }}", tag: "arm64v8-latest"}
+  - { arch: "{{ arch_armhf }}", tag: "arm32v6-latest"}
+
+# container parameters
+param_container_name: "{{ project_name }}"
+param_usage_include_vols: true
+param_volumes:
+  - { vol_path: "/config", vol_host_path: "<path to data>", desc: "this will store any uploaded data on the docker host" }
+param_usage_include_env: true
+param_env_vars:
+  - { env_var: "DB_HOST", env_value: "<yourdbhost>", desc: "for specifying the database host" }
+  - { env_var: "DB_USER", env_value: "<yourdbuser>", desc: "for specifying the database user" }
+  - { env_var: "DB_PASS", env_value: "<yourdbpass>", desc: "for specifying the database password" }
+  - { env_var: "DB_DATABASE", env_value: "bookstackapp", desc: "for specifying the database to be used" }
+
+param_usage_include_ports: true
+param_ports:
+  - { external_port: "6875", internal_port: "80", port_desc: "will map the container's port 80 to port 6875 on the host" }
+
+# application setup block
+app_setup_block_enabled: true
+app_setup_block: |
+  This application is dependent on an SQL database be it one you already have or a new one. If you do not already have one, set up our MariaDB container.
+
+  Once the MariaDB container is deployed, you can enter the following commands into the shell of the MariaDB container to create the user, password and database that the app will then use. Replace myuser/mypassword with your own data.
+
+  **Note** this will allow any user with these credentials to connect to the server, it is not limited to localhost
+
+  ```
+  from shell: mysql -u root -p
+  CREATE DATABASE bookstackapp;
+  GRANT USAGE ON *.* TO 'myuser'@'%' IDENTIFIED BY 'mypassword';
+  GRANT ALL privileges ON 'bookstackapp'.* TO 'myuser'@localhost;
+  FLUSH PRIVILEGES;
+  ```
+
+  Once you have completed these, you can then use the docker run command to create your BookStack container. Make sure you replace things such as <yourdbuser> with the correct data.
+
+  Then docker start bookstackapp to start the container. You should then be able to access the container at http://dockerhost:6875
+
+  Default username is admin@admin.com with password of **password**
+
+  Documentation can be found at https://www.bookstackapp.com/docs/
+
+# changelog
+changelogs:
+  - { date: "02.07.18:", desc: "Initial Release." }
+
+```
+
+These variables will be applied to the master template found here: 
+
+https://github.com/linuxserver/doc-builder/blob/master/roles/generate-docs/templates/README.md.j2
+
+If this is the first time templating a README in a repo it is recommended to build it locally and commit the finished readme. 
+
+Once you have the variables setup the way to like you can test the output by executing: 
+
+```
+docker run --rm \
+ -v $(pwd):/tmp \
+ -e LOCAL=true \
+ linuxserver/doc-builder:latest
+```
+
+This will output GENERATED.md in your current working directory (should be the repo you are working on), this can be renamed to README.md and pushed with the commit or left out and a bot will commit the new README to master via the build slave. 
 
 ## Appendix
 
