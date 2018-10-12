@@ -102,7 +102,7 @@ LS_VERSION=$(echo ${LS_RELEASE} | sed 's/^.*-ls//g')
 # Send a message explaining the build trigger and reason to discord
 function tell_discord {
   curl -X POST --data '{"avatar_url": "https://wiki.jenkins-ci.org/download/attachments/2916393/headshot.png","embeds": [{"color": 9802903,
-                        "description": "**Build Triggerd** \n**Reason:**: '"${TRIGGER_REASON}"' \n"}],
+                        "description": "**Build Triggered** \n**Reason:**: '"${TRIGGER_REASON}"' \n"}],
                         "username": "Jenkins"}' ${BUILDS_DISCORD}
 }
 
