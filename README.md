@@ -54,7 +54,7 @@ A conventional project will contain 3 different build triggers:
 
 - Commit to LinuxServer base repository
 
-- Change in referenced OS level packages
+- Change in OS level packages
 
 - Change in a referenced external software package the project is based on
 
@@ -68,31 +68,47 @@ https://github.com/linuxserver/pipeline-triggers/blob/master/trigger-logic.sh
 
 This is pulled and passed parameters on a timer based on the custom configuration for your trigger job.
 
+The vast majority of repositories do not use these custom triggers, we simply use a polling plugin that reaches out to api endpoints and checks for changes in specific JSON objects (IE github releases or commits api).
+
 #### LinuxServer Github Commits
 
- This is the most baked in methodology of triggering a build for a Jenkins Pipeline. It is a two step process to configure the repository with a JenkinsFile and add it to Jenkins at https://pipeline.linuxserver.io/blue/organizations/jenkins/create-pipeline . ( In this example for a development user for docker-freshrss )
+This is the most baked in methodology of triggering a build for a Jenkins Pipeline. It is a two step process to configure the repository with a JenkinsFile and add it to Jenkins at https://ci.linuxserver.io/blue/organizations/jenkins/create-pipeline . ( In this example for a development user for docker-freshrss )
 
 ![ ](https://s3-us-west-2.amazonaws.com/linuxserver-docs/images/addpipeline.png  "Addpipeline")
 
- With the Pipeline in place you will also need to configure the repository to use the Jenkins Github plugin to trigger builds when a commit or pull request is sent to the repo. The URL to use for this integraiton is:
+With the Pipeline in place you will also need to configure the repository with a webhook to push events in JSON format to the following endpoint:
 
- https://pipeline.linuxserver.io/github-webhook/
+https://ci.linuxserver.io/github-webhook/
 
-![ ](https://s3-us-west-2.amazonaws.com/linuxserver-docs/images/addtriggergithub.png  "triggergithub")
+Below is the configuration:
 
- With these setup the pipeline defined in the Master branch of the project will be triggered whenever code is changed.
+![ ](https://s3-us-west-2.amazonaws.com/linuxserver-docs/images/add_webhook.png  "triggergithub")
 
-#### External OS Package  Change
+This should happen automatically, but some users do not have these privileges, so adding this webhook is documented here.
 
- Again the code for this job can be found in this repo under https://github.com/linuxserver/pipeline-triggers/blob/master/trigger-logic.sh . In order for this to fire off a build job on a change a timed job needs to be configured to run every hour in Jenkins.
+With these setup and the Jenkinsfile for the project in repo the project will be built on all commits.
 
- A good reference job to copy when setting this up is:
+We break up the endpoints for a dockerhub push based on the type of commit:
 
- https://pipeline.linuxserver.io/job/package-trigger-docker-cops/configure
+- [linuxserver](https://hub.docker.com/u/linuxserver/) - All commits to the master branch will push to our live endpoint
+- [lsiodev](https://hub.docker.com/u/lsiodev/) - All commits to non master branches will push to this endpoint
+- [lspipepr](https://hub.docker.com/u/lspipepr/) - All pull requests will push to this endpoint
 
- The job takes a series of string parameters to pass to the trigger-logic bash script. Using these parameters we can generate an MD5SUM of all of the package versions passed to the script.
+#### External OS Package Change
 
- The logic depends on the OS, but essentially we run a package index update then pass an array of packages to the CLI package manager to print out the package versions and description. This huge blob is then piped into md5sum and the first 8 characters are used to form a unique tag that we can detect changes in.
+The Jenkinsfile contains logic to automatically maintain a list of all of the installed packages and their versions dumped after the build succeeds, this can be found in package_versions.txt in the repository under the master branch. If this file does not exist it will automatically be generated and committed on the first build.
+
+If any of the packages are updated in our docker images we want to rebuild and push a fresh build. In order to achieve this we trigger the existing jobs to build once a week with a special parameter passed to the build job:
+
+```
+PACKAGE_CHECK=true
+```
+
+An example of the weekly package check trigger can be found here:
+
+https://ci.linuxserver.io/job/External-Triggers/job/snipe-it-package-trigger/configure
+
+When creating a new trigger simply copy this job and swap in the endpoints you need to build.
 
 #### External Software Change
 
@@ -102,13 +118,15 @@ In this document we will be covering two different external software change jobs
 
 The most common use for a job like this would be to reference the current version displayed on the Github API endpoint. An example of this type of job can be seen at:
 
-https://pipeline.linuxserver.io/job/external-trigger-docker-cops/configure
+https://ci.linuxserver.io/job/External-Triggers/job/snipe-it-external-trigger/configure
 
 ![ ](https://s3-us-west-2.amazonaws.com/linuxserver-docs/images/httptrigger.png  "HTTPTrigger")
 
+Here we poll this URL every 15 minutes and check the release tag for changes in the JSON payload.
+
 ###### Triggering based on custom external releases
 
-Some projects either do not live on GitHub or their release process requires us to do some unorthadox things to determine if there is a new release. These specialized checks live in bash in the logic script and are executed on a timed basis to consistently reach out and check for new versions.
+Some projects either do not live on GitHub or their release process requires us to do some unorthodox things to determine if there is a new release. These specialized checks live in bash in the logic script and are executed on a timed basis to consistently reach out and check for new versions.
 
 In this example we will be checking an external file blob for a Plex deb package. The full job configuration can be seen here:
 
@@ -161,7 +179,6 @@ This file uses a series of parameters in the header to determine what type of bu
 - deb_repo- A string of debian (or ubuntu) repos is passed along with a list of packages and their package versions are checked by running a docker container at the version requested. An apt version for all of the listed packages is md5summed  for the release tagging.
 - alpine_repo- An Alpine repo along with a  list of packages used from that repo are used to run a docker container at the version of alpine requested to generate an md5sum of the output for release tagging.
 - github_commit- The GitHub commits api endpoint is polled to get the latest commit sha at the branch requested to generate a release tag.
-- github_tag- The GitHub tags api endpoint is polled to get the latest tag for the project to generate a release tag.
 - npm_version- The NPM api is polled to get the version number to generate a release tag.
 - pip_version- The pyPIP api is polled to get the latest verison number to generate a release tag.
 - external_blob- A custom http/https endpoint is defined and the file at that endpoint is downloaded to generate an md5sum for the release tag.
@@ -193,103 +210,92 @@ A brief explanation of all of the variables used:
 - BUILDS_DISCORD- This pulls credentials from the Jenkins Master Server
 - GITHUB_TOKEN- This pulls credentials from the Jenkins Master Server
 - DIST_IMAGE- This is used for the package tag generation logic IE "alpine" or "ubuntu"
-- DIST_TAG- This is used for the package tag generation logic IE "3.7" or "xenial"
-- DIST_PACKAGES- This is a list of OS level packages
+- DIST_TAG- This is used for the package tag generation logic IE "3.8" or "bionic"
 - DIST_REPO- If special repos are used for your image, this contains the external release that will be used to populate a command to pull package versions.
 - DIST_REPO_PACKAGES-  If special repos are used for your image this contains the external release that will be a list of packages to check versions to generate a tag.
 - JSON_URL- When using a custom JSON endpoint this is the URL of the endpoint
 - JSON_PATH- This is the path to the item you want to watch for changes and use for the version code on the build IE '.linux.x86_64.version'
 - MULTIARCH- if this will be built against the 3 architectures amd64, armhf, and arm64 (true/false)
 - CI- true/false to enable continuous integration
-- CI_WEB- true/false to enable screenshotting the web application for the CI process
+- CI_WEB- true/false to enable screen shotting the web application for the CI process
 - CI_PORT- The port the application you are building listens on a web interface internally
 - CI_SSL- true/false to use an https endpoint to capture a screenshot of the endpoint
 - CI_DELAY- amount of time in seconds to wait after the container spins up to grab a screenshot
-- CI_DOCKERENV- single env variable or multiple seperated by '|' IE 'APP_URL=_|DB_CONNECTION=sqlite_testing'
+- CI_DOCKERENV- single env variable or multiple seperated by '|' IE 'APP_URL=blah.com|DB_CONNECTION=sqlite_testing'
 - CI_AUTH- if the web application requires basic authentication format user:password
 - CI_WEBPATH- custom path to use when capturing a screenshot of the web application
 
 ## Automating README updates
 
-Another pain point we have as an organization is managing over 100 READMEs across Github and Dockerhub. The build process uses helper containers in conjunction with an in repo yaml file to template the README from a master template and push the updates to both Github and Dockerhub. 
+Another pain point we have as an organization is managing over 100 READMEs across Github and Dockerhub. The build process uses helper containers in conjunction with an in repo yaml file to template the README from a master template and push the updates to both Github and Dockerhub.
 
-This means the repo will need a "readme-vars.yml file in the root of the repo, an example can be seen below: 
+This means the repo will need a "readme-vars.yml file in the root of the repo, an example can be seen below:
 
 ```
 ---
 
 # project information
-project_name: bookstack
-project_url: "https://github.com/BookStackApp/BookStack"
-project_logo: "https://s3-us-west-2.amazonaws.com/linuxserver-docs/images/bookstack-logo500x500.png"
-project_blurb: |
-  [{{ project_name|capitalize }}]({{ project_url }}) is a free and open source Wiki designed for creating beautiful documentation. Feautring a simple, but powerful WYSIWYG editor it allows for teams to create detailed and useful documentation with ease.
-
-  Powered by SQL and including a Markdown editor for those who prefer it, BookStack is geared towards making documentation more of a pleasure than a chore.
-
-  For more information on BookStack visit their website and check it out: https://www.bookstackapp.com
+project_name: smokeping
+project_url: "https://oss.oetiker.ch/smokeping/"
+project_logo: "https://camo.githubusercontent.com/e0694ef783e3fd1d74e6776b28822ced01c7cc17/687474703a2f2f6f73732e6f6574696b65722e63682f736d6f6b6570696e672f696e632f736d6f6b6570696e672d6c6f676f2e706e67"
+project_blurb: "[{{ project_name|capitalize }}]({{ project_url }}) keeps track of your network latency. For a full example of what this application is capable of visit [UCDavis](http://smokeping.ucdavis.edu/cgi-bin/smokeping.fcgi)."
 project_lsio_github_repo_url: "https://github.com/linuxserver/docker-{{ project_name }}"
 
 # supported architectures
 available_architectures:
-  - { arch: "{{ arch_x86_64 }}", tag: "amd64-latest"}
-  - { arch: "{{ arch_arm64 }}", tag: "arm64v8-latest"}
-  - { arch: "{{ arch_armhf }}", tag: "arm32v6-latest"}
+  - { arch: "{{ arch_x86_64 }}", tag: "tbc"}
+  - { arch: "{{ arch_arm64 }}", tag: "tbc"}
+  - { arch: "{{ arch_armhf }}", tag: "tbc"}
 
 # container parameters
 param_container_name: "{{ project_name }}"
 param_usage_include_vols: true
 param_volumes:
-  - { vol_path: "/config", vol_host_path: "<path to data>", desc: "this will store any uploaded data on the docker host" }
-param_usage_include_env: true
-param_env_vars:
-  - { env_var: "DB_HOST", env_value: "<yourdbhost>", desc: "for specifying the database host" }
-  - { env_var: "DB_USER", env_value: "<yourdbuser>", desc: "for specifying the database user" }
-  - { env_var: "DB_PASS", env_value: "<yourdbpass>", desc: "for specifying the database password" }
-  - { env_var: "DB_DATABASE", env_value: "bookstackapp", desc: "for specifying the database to be used" }
-
+  - { vol_path: "/config", vol_host_path: "</path/to/smokeping/config>", desc: "Configure the `Targets` file here" }
+  - { vol_path: "/data", vol_host_path: "</path/to/{{ project_name }}/data>", desc: "Storage location for db and application data (graphs etc)" }
 param_usage_include_ports: true
 param_ports:
-  - { external_port: "6875", internal_port: "80", port_desc: "will map the container's port 80 to port 6875 on the host" }
+  - { external_port: "80", internal_port: "80", port_desc: "Allows HTTP access to the internal webserver." }
+param_usage_include_env: true
+param_env_vars:
+  - { env_var: "TZ", env_value: "Europe/London", desc: "Specify a timezone to use EG Europe/London"}
 
 # application setup block
 app_setup_block_enabled: true
 app_setup_block: |
-  This application is dependent on an SQL database be it one you already have or a new one. If you do not already have one, set up our MariaDB container.
-
-  Once the MariaDB container is deployed, you can enter the following commands into the shell of the MariaDB container to create the user, password and database that the app will then use. Replace myuser/mypassword with your own data.
-
-  **Note** this will allow any user with these credentials to connect to the server, it is not limited to localhost
-
-  ```
-  from shell: mysql -u root -p
-  CREATE DATABASE bookstackapp;
-  GRANT USAGE ON *.* TO 'myuser'@'%' IDENTIFIED BY 'mypassword';
-  GRANT ALL privileges ON 'bookstackapp'.* TO 'myuser'@localhost;
-  FLUSH PRIVILEGES;
-  ```
-
-  Once you have completed these, you can then use the docker run command to create your BookStack container. Make sure you replace things such as <yourdbuser> with the correct data.
-
-  Then docker start bookstackapp to start the container. You should then be able to access the container at http://dockerhost:6875
-
-  Default username is admin@admin.com with password of **password**
-
-  Documentation can be found at https://www.bookstackapp.com/docs/
+  - Once running the URL will be `http://<host-ip>/smokeping/smokeping.cgi`.
+  - Basics are, edit the `Targets` file to ping the hosts you're interested in to match the format found there.
+  - Wait 10 minutes.
 
 # changelog
 changelogs:
-  - { date: "02.07.18:", desc: "Initial Release." }
-
+  - { date: "28.04.18:", desc: "Rebase to alpine 3.8." }
+  - { date: "09.04.18:", desc: "Add bc package." }
+  - { date: "08.04.18:", desc: "Add tccping script and tcptraceroute package (thanks rcarmo)." }
+  - { date: "13.12.17:", desc: "Expose httpd_conf to /config." }
+  - { date: "13.12.17:", desc: "Rebase to alpine 3.7." }
+  - { date: "24.07.17:", desc: "Add :unraid tag for hosts without ipv6." }
+  - { date: "12.07.17:", desc: "Add inspect commands to README, move to jenkins build and push." }
+  - { date: "28.05.17:", desc: "Rebase to alpine 3.6." }
+  - { date: "07.05.17:", desc: "Expose smokeping.conf in /config/site-confs to allow user customisations" }
+  - { date: "12.04.17:", desc: "Fix cropper.js path, thanks nibbledeez." }
+  - { date: "09.02.17:", desc: "Rebase to alpine 3.5." }
+  - { date: "17.10.16:", desc: "Add ttf-dejavu package as per [LT forum](http://lime-technology.com/forum/index.php?topic=43602.msg507875#msg507875)." }
+  - { date: "10.09.16:", desc: "Add layer badges to README." }
+  - { date: "05.09.16:", desc: "Add curl package." }
+  - { date: "28.08.16:", desc: "Add badges to README." }
+  - { date: "25.07.16:", desc: "Rebase to alpine linux." }
+  - { date: "23.07.16:", desc: "Fix apt script confusion." }
+  - { date: "29.06.15:", desc: "This is the first release, it is mostly stable, but may contain minor defects. (thus a beta tag)" }
 ```
 
-These variables will be applied to the master template found here: 
+These variables will be applied to the master template found here:
 
 https://github.com/linuxserver/doc-builder/blob/master/roles/generate-docs/templates/README.md.j2
 
-If this is the first time templating a README in a repo it is recommended to build it locally and commit the finished readme. 
+If this is the first time templating a README in a repo it is recommended to build it locally and commit the finished readme.
 
-Once you have the variables setup the way to like you can test the output by executing: 
+Once you have the variables setup the way to like you can test the output by executing:
 
 ```
 docker run --rm \
@@ -298,7 +304,7 @@ docker run --rm \
  linuxserver/doc-builder:latest
 ```
 
-This will output GENERATED.md in your current working directory (should be the repo you are working on), this can be renamed to README.md and pushed with the commit or left out and a bot will commit the new README to master via the build slave. 
+This will output GENERATED.md in your current working directory (should be the repo you are working on), this can be renamed to README.md and pushed with the commit or left out and a bot will commit the new README to master via the build slave.
 
 ## Appendix
 
@@ -414,16 +420,9 @@ When building applications some projects require building and pushing arm, and a
 Dockerfile
 Dockerfile.armhf
 Dockerfile.aarch64
-qemu-aarch64-static
-qemu-arm-static
 ```
 
-The Qemu binaries can be downloaded here ( swap out for a new version )
-
-https://github.com/multiarch/qemu-user-static/releases/download/v2.12.0/x86_64_qemu-aarch64-static.tar.gz
-https://github.com/multiarch/qemu-user-static/releases/download/v2.12.0/x86_64_qemu-arm-static.tar.gz
-
-The arm variants of the image need to copy these binaries to the image before running any RUN commands in the Dockerfile . IE:
+The arm variants of the image need to copy qemu binaries as a first step to allow us to run continuous integration in emulation on an X86 host:
 
 ```
 FROM lsiobase/alpine.nginx.arm64:3.7
@@ -437,12 +436,22 @@ FROM lsiobase/alpine.nginx.armhf:3.7
 COPY qemu-arm-static /usr/bin
 ```
 
-This will push a manifest style tag to the DockerHub endpoint and allow users to download from any architecture using the same "latest" or specific tag.
+These binaries will be downloaded and available during build time in Jenkins, but if you need to build locally you can run the following commands to allow building arm variants on x86 hardware:
 
+```
+docker run --rm --privileged multiarch/qemu-user-static:register --reset
+curl https://lsio-ci.ams3.digitaloceanspaces.com/qemu-arm-static -o qemu-arm-static
+curl https://lsio-ci.ams3.digitaloceanspaces.com/qemu-aarch64-static -o qemu-aarch64-static
+chmod +x qemu-*
+docker build -f Dockerfile.aarch64 -t testarm64 .
+docker build -f Dockerfile.armhf -t testarm .
+```
+This will also allow you to run the arm variants on an x86 machine which can be useful for debugging.
+It is important to note that qemu emulation is not perfect, but it is very useful when you have no access to native arm hardware.
 
 #### Setting up a Jenkins Build slave
 
-Jenkins build slaves work by being accessable via SSH and having some core programs installed we use for the build process here is an example of configuration on a Debian Server.
+Jenkins build slaves work by being accessible via SSH and having some core programs installed we use for the build process here is an example of configuration on a Debian Server.
 
 ```
 apt-get update && apt-get install apt-transport-https ca-certificates curl gnupg2 software-properties-common jq git default-jre
@@ -456,6 +465,7 @@ You will also want to add the following cron job to the machine to keep it from 
 
 ```
 0 0 * * 0 root /usr/bin/docker system prune -af
+0 0 * * 0 root /usr/bin/docker image prune -af
 ```
 
 This will clear out the machine once a week.
@@ -472,4 +482,11 @@ Then enable experimental CLI features:
 ```
 echo '{"experimental": "enabled"}' > /root/.docker/config.json
 
+```
+
+Since the build process commits to our repos we need to set a global username and email for GitHub:
+
+```
+git config --global user.email "ci@linuxserver.io"
+git config --global user.name "LinuxServer-CI"
 ```
