@@ -1,0 +1,29 @@
+---
+
+# jenkins variables
+project_name: docker-minisatip
+external_type: github_commit
+release_type: stable
+release_tag: latest
+ls_branch: master
+repo_vars:
+  - EXT_GIT_BRANCH = 'master'
+  - EXT_USER = 'catalinii'
+  - EXT_REPO = 'minisatip'
+  - BUILD_VERSION_ARG = 'MINISATIP_COMMIT'
+  - LS_USER = 'linuxserver'
+  - LS_REPO = 'docker-minisatip'
+  - CONTAINER_NAME = 'minisatip'
+  - DOCKERHUB_IMAGE = 'linuxserver/minisatip'
+  - DEV_DOCKERHUB_IMAGE = 'lsiodev/minisatip'
+  - PR_DOCKERHUB_IMAGE = 'lspipepr/minisatip'
+  - DIST_IMAGE = 'alpine'
+  - MULTIARCH='true'
+  - CI='true'
+  - CI_WEB='false'
+  - CI_PORT=''
+  - CI_SSL=''
+  - CI_DELAY=''
+  - CI_DOCKERENV='TZ=US/Pacific'
+  - CI_AUTH=''
+  - CI_WEBPATH=''
