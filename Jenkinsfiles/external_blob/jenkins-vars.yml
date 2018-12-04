@@ -1,0 +1,27 @@
+---
+
+# jenkins variables
+project_name: docker-plex
+external_type: external_blob
+release_type: stable
+release_tag: latest
+ls_branch: master
+repo_vars:
+  - EXT_BLOB = 'https://plex.tv/downloads/latest/1?channel=8&build=linux-ubuntu-x86_64&distro=ubuntu'
+  - BUILD_VERSION_ARG = 'PLEX_VERSION'
+  - LS_USER = 'linuxserver'
+  - LS_REPO = 'docker-plex'
+  - CONTAINER_NAME = 'plex'
+  - DOCKERHUB_IMAGE = 'linuxserver/plex'
+  - DEV_DOCKERHUB_IMAGE = 'lsiodev/plex'
+  - PR_DOCKERHUB_IMAGE = 'lspipepr/plex'
+  - DIST_IMAGE = 'ubuntu'
+  - MULTIARCH='true'
+  - CI='true'
+  - CI_WEB='true'
+  - CI_PORT='32400'
+  - CI_SSL='false'
+  - CI_DELAY='120'
+  - CI_DOCKERENV='VERSION=latest'
+  - CI_AUTH='user:password'
+  - CI_WEBPATH='/web'

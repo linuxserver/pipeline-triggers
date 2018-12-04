@@ -1,0 +1,27 @@
+---
+
+# jenkins variables
+project_name: docker-letsencrypt
+external_type: pip_version
+release_type: stable
+release_tag: latest
+ls_branch: master
+repo_vars:
+  - EXT_PIP = 'certbot-dns-google'
+  - BUILD_VERSION_ARG = 'GOOGLECERT_VERSION'
+  - LS_USER = 'linuxserver'
+  - LS_REPO = 'docker-letsencrypt'
+  - CONTAINER_NAME = 'letsencrypt'
+  - DOCKERHUB_IMAGE = 'linuxserver/letsencrypt'
+  - DEV_DOCKERHUB_IMAGE = 'lsiodev/letsencrypt'
+  - PR_DOCKERHUB_IMAGE = 'lspipepr/letsencrypt'
+  - DIST_IMAGE = 'alpine'
+  - MULTIARCH='true'
+  - CI='true'
+  - CI_WEB='false'
+  - CI_PORT=''
+  - CI_SSL=''
+  - CI_DELAY=''
+  - CI_DOCKERENV='TZ=US/Pacific'
+  - CI_AUTH=''
+  - CI_WEBPATH=''

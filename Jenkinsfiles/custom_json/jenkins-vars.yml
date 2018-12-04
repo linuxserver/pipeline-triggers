@@ -1,0 +1,28 @@
+---
+
+# jenkins variables
+project_name: docker-gsm-ts3
+external_type: custom_json
+release_type: stable
+release_tag: latest
+ls_branch: master
+repo_vars:
+  - JSON_URL = 'https://www.teamspeak.com/versions/server.json'
+  - JSON_PATH = '.linux.x86_64.version'
+  - BUILD_VERSION_ARG = 'TS3_VERSION'
+  - LS_USER = 'linuxserver'
+  - LS_REPO = 'docker-gsm-ts3'
+  - CONTAINER_NAME = 'gsm-ts3'
+  - DOCKERHUB_IMAGE = 'linuxserver/gsm-ts3'
+  - DEV_DOCKERHUB_IMAGE = 'lsiodev/gsm-ts3'
+  - PR_DOCKERHUB_IMAGE = 'lspipepr/gsm-ts3'
+  - DIST_IMAGE = 'ubuntu'
+  - MULTIARCH='false'
+  - CI='true'
+  - CI_WEB='false'
+  - CI_PORT=''
+  - CI_SSL=''
+  - CI_DELAY=''
+  - CI_DOCKERENV='TZ=US/Pacific'
+  - CI_AUTH='user:password'
+  - CI_WEBPATH=''

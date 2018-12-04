@@ -1,0 +1,29 @@
+---
+
+# jenkins variables
+project_name: docker-sabnzbd
+external_type: deb_repo
+release_type: stable
+release_tag: latest
+ls_branch: master
+repo_vars:
+  - BUILD_VERSION_ARG = 'SAB_VERSION'
+  - LS_USER = 'linuxserver'
+  - LS_REPO = 'docker-sabnzbd'
+  - CONTAINER_NAME = 'sabnzbd'
+  - DOCKERHUB_IMAGE = 'linuxserver/sabnzbd'
+  - DEV_DOCKERHUB_IMAGE = 'lsiodev/sabnzbd'
+  - PR_DOCKERHUB_IMAGE = 'lspipepr/sabnzbd'
+  - DIST_IMAGE = 'ubuntu'
+  - DIST_TAG = 'xenial'
+  - DIST_REPO = 'deb http://ppa.launchpad.net/jcfp/nobetas/ubuntu xenial main \\n deb-src http://ppa.launchpad.net/jcfp/nobetas/ubuntu xenial main \\n deb http://ppa.launchpad.net/jcfp/sab-addons/ubuntu xenial main \\n deb-src http://ppa.launchpad.net/jcfp/sab-addons/ubuntu xenial main'
+  - DIST_REPO_PACKAGES = 'p7zip-full par2-tbb python-sabyenc sabnzbdplus unrar unzip'
+  - MULTIARCH='true'
+  - CI='true'
+  - CI_WEB='true'
+  - CI_PORT='8080'
+  - CI_SSL='false'
+  - CI_DELAY='120'
+  - CI_DOCKERENV='TZ=US/Pacific'
+  - CI_AUTH='user:password'
+  - CI_WEBPATH=''

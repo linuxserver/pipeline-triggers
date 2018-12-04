@@ -11,6 +11,8 @@
           + [Triggering based on custom external releases](#triggering-based-on-custom-external-releases)
   * [The JenkinsFile](#the-jenkinsfile)
       - [Build Types](#build-types)
+      - [Templating](#templating)
+          + [jenkins-vars](#jenkins-vars)
       - [Header Variables](#header-variables)
   * [Automating README updates](#automating-readme-updates)
   * [Appendix](#appendix)
@@ -186,7 +188,30 @@ This file uses a series of parameters in the header to determine what type of bu
 
 In all of these examples these extracted tags are what is passed to the subsequent build job and determines the version of software the user gets when running the container.
 
-#### Header Variables
+#### Templating
+
+In order to maintain the build logic across all of our repos we leverage a helper container to render the current Jenkinsfile at build time and compare it with current. If changes are found the updates will be pushed to the selected branch of the repo.
+
+When initially creating a project or converting from older build logic two files will need to be included in the repo:
+
+ - Jenkinsfile- This is the main build logic, but at a minimum it only needs to contain the logic to template from the jenkins variables passed to it. Examples of minimal files are included in this repository under the Jenkinsfiles folder.
+ - jenkins-vars.yml- Contains all of the custom variables for this project needed by the build logic.
+
+In order to participate in the development of the build logic that waterfalls to all of the pipeline repos, please see:
+
+https://github.com/linuxserver/docker-jenkins-builder
+
+##### jenkins-vars
+
+This file will contain all of the needed variables covered in the Repo Variables section covered below and will have its own header for logic wrapping:
+
+ - project_name- Full name of repository.
+ - external_type- This will be one of the Build types above IE github_stable .
+ - release_type- This determines if it is a stable or prerelease in github, this can be useful for branched projects where you want to build a development or nightly build in the case of prerelease.
+ - release_tag- Determines the finished meta tag for the dockerhub endpoint, for all master branch builds this will be latest, for development branches this can vary IE nightly or development
+ - ls_branch- The branch you are currently building on, this is hardcoded into the variables file to avoid any mistakes. It will be used to keep metadata files and template files up to date in that branch. If you are working on a temporary branch you **DO NOT** need to switch this around as you do not want the resulting builds to update anything in your temp branch. Again, only use this for permanent development branches for building nightly or dev version of the software.
+
+#### Repo Variables
 
 In the header of the Jenkinsfile is all that a normal contributor should be modifying the build logic will handle the rest.
 
