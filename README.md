@@ -502,10 +502,15 @@ docker run --rm --privileged multiarch/qemu-user-static:register --reset
 
 ```
 
+This needs to be repeated every time docker service is restarted. To automate, you can modify the systemd service for docker by adding the following to `/etc/systemd/system/multi-user.target.wants/docker.service` right underneath the ExecStart:
+```
+ExecStartPost=/usr/bin/docker run --rm --privileged multiarch/qemu-user-static:register --reset
+```
+
 Then enable experimental CLI features:
 
 ```
-echo '{"experimental": "enabled"}' > /root/.docker/config.json
+echo '{"experimental": "enabled"}' > /home/<jenkinsuser>/.docker/config.json
 
 ```
 
