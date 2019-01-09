@@ -486,14 +486,6 @@ stable"
 apt-get update && apt-get install docker-ce -y
 ```
 
-You will also want to add the following cron job to the machine to keep it from filling up with built images over time:
-
-```
-0 0 * * 0 root /usr/bin/docker system prune -af
-0 0 * * 0 root /usr/bin/docker image prune -af
-```
-
-This will clear out the machine once a week.
 
 To allow multi-arch builds first you need to register the interpreters with Docker using:
 
@@ -506,6 +498,8 @@ This needs to be repeated every time docker service is restarted. To automate, y
 ```
 ExecStartPost=/usr/bin/docker run --rm --privileged multiarch/qemu-user-static:register --reset
 ```
+*Keep in mind that every time docker package is updated, docker.service needs to be edited again*  
+  
 
 Then enable experimental CLI features:
 
