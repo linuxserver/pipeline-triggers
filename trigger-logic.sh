@@ -30,24 +30,12 @@ case $i in
   LS_REPO="${i#*=}"
   shift
   ;;
-  -EXT_GIT_BRANCH=*)
-  EXT_GIT_BRANCH="${i#*=}"
+  -LS_BRANCH=*)
+  LS_BRANCH="${i#*=}"
   shift
   ;;
-  -EXT_USER=*)
-  EXT_USER="${i#*=}"
-  shift
-  ;;
-  -EXT_REPO=*)
-  EXT_REPO="${i#*=}"
-  shift
-  ;;
-  -EXT_NPM=*)
-  EXT_NPM="${i#*=}"
-  shift
-  ;;
-  -EXT_PIP=*)
-  EXT_PIP="${i#*=}"
+  -LS_RELEASE_TYPE=*)
+  LS_RELEASE_TYPE="${i#*=}"
   shift
   ;;
   -EXT_BLOB=*)
@@ -58,26 +46,6 @@ case $i in
   BUILDS_DISCORD="${i#*=}"
   shift
   ;;
-  -DIST_IMAGE=*)
-  DIST_IMAGE="${i#*=}"
-  shift
-  ;;
-  -DIST_TAG=*)
-  DIST_TAG="${i#*=}"
-  shift
-  ;;
-  -DIST_PACKAGES=*)
-  DIST_PACKAGES="${i#*=}"
-  shift
-  ;;
-  -DIST_REPO=*)
-  DIST_REPO="${i#*=}"
-  shift
-  ;;
-  -DIST_REPO_PACKAGES=*)
-  DIST_REPO_PACKAGES="${i#*=}"
-  shift
-  ;;
   -JENKINS_USER=*)
   JENKINS_USER="${i#*=}"
   shift
@@ -86,14 +54,25 @@ case $i in
   JENKINS_API_KEY="${i#*=}"
   shift
   ;;
+  -VEYOR_VARS=*)
+  VEYOR_VARS="${i#*=}"
+  shift
+  ;;
 esac
 done
 
 # Get the current release info
-LS_RELEASE=$(curl -s https://api.github.com/repos/${LS_USER}/${LS_REPO}/releases/latest | jq -r '. | .name')
-EXTERNAL_TAG=$(echo ${LS_RELEASE} | awk -F'-pkg-' '{print $1}')
-PACKAGE_TAG=$(echo ${LS_RELEASE} | grep -o -P '(?<=-pkg-).*(?=-ls)')
-LS_VERSION=$(echo ${LS_RELEASE} | sed 's/^.*-ls//g')
+if [ "${LS_RELEASE_TYPE}" == "stable" ]; then
+  LS_RELEASE=$(curl -s https://api.github.com/repos/${LS_USER}/${LS_REPO}/releases/latest | jq -r '. | .name')
+  EXTERNAL_TAG=$(echo ${LS_RELEASE} | awk -F'-pkg-' '{print $1}')
+  PACKAGE_TAG=$(echo ${LS_RELEASE} | grep -o -P '(?<=-pkg-).*(?=-ls)')
+  LS_VERSION=$(echo ${LS_RELEASE} | sed 's/^.*-ls//g')
+elif [ "${LS_RELEASE_TYPE}" == "prerelease" ]; then 
+  LS_RELEASE=$(curl -s https://api.github.com/repos/${LS_USER}/${LS_REPO}/releases | jq -r 'first(.[] | select(.prerelease == true)) | .tag_name')
+  EXTERNAL_TAG=$(echo ${LS_RELEASE} | awk -F'-pkg-' '{print $1}')
+  PACKAGE_TAG=$(echo ${LS_RELEASE} | grep -o -P '(?<=-pkg-).*(?=-ls)')
+  LS_VERSION=$(echo ${LS_RELEASE} | sed 's/^.*-ls//g')
+fi
 
 #############
 # Functions #
@@ -115,73 +94,14 @@ function tell_discord_fail {
 # Trigger the build for this triggers job
 function trigger_build {
   curl -X POST \
-      https://ci.linuxserver.io/job/Docker-Pipeline-Builders/job/${LS_REPO}/job/master/build \
+      https://ci.linuxserver.io/job/Docker-Pipeline-Builders/job/${LS_REPO}/job/${LS_BRANCH}/build \
       --user ${JENKINS_USER}:${JENKINS_API_KEY}
   tell_discord
 }
 
-####################
-# Package triggers #
-####################
-
-# This is an Alpine package trigger
-if [ "${TRIGGER_TYPE}" == "alpine_package" ]; then
-  echo "This is an alpine package trigger"
-  # Pull the latest alpine image
-  docker pull alpine:${DIST_TAG}
-  # Determine the current tag
-  CURRENT_PACKAGE=$(docker run --rm alpine:${DIST_TAG} sh -c 'apk update --quiet\
-  && apk info '"${DIST_PACKAGES}"' | md5sum | cut -c1-8')
-  # If the current tag matches the build or it is not an 8 character string
-  if [ "${CURRENT_PACKAGE}" == "${PACKAGE_TAG}" ] || [ "${#CURRENT_PACKAGE}" != 8 ] || [ "${#PACKAGE_TAG}" != 8 ]; then
-    echo "Nothing to do release is up to date, or bad return from hash command"
-  elif [ "${CURRENT_PACKAGE}" != "${PACKAGE_TAG}" ]; then
-    TRIGGER_REASON="An Alpine base package change was detected for ${LS_REPO} old md5:${PACKAGE_TAG} new md5:${CURRENT_PACKAGE}"
-    trigger_build
-  fi
-fi
-
-# This is an Ubuntu package trigger
-if [ "${TRIGGER_TYPE}" == "ubuntu_package" ]; then
-  echo "This is an ubuntu package trigger"
-  # Pull the latest ubuntu image
-  docker pull ubuntu:${DIST_TAG}
-  # Determine the current tag
-  CURRENT_PACKAGE=$(docker run --rm ubuntu:${DIST_TAG} sh -c\
-                   'apt-get --allow-unauthenticated update -qq >/dev/null 2>&1 &&\
-                    apt-cache --no-all-versions show '"${DIST_PACKAGES}"' | md5sum | cut -c1-8')
-  # If the current tag matches the build or it is not an 8 character string
-  if [ "${CURRENT_PACKAGE}" == "${PACKAGE_TAG}" ]  || [ "${#CURRENT_PACKAGE}" != 8 ] || [ "${#PACKAGE_TAG}" != 8 ]; then
-    echo "Nothing to do release is up to date, or bad return from hash command"
-  elif [ "${CURRENT_PACKAGE}" != "${PACKAGE_TAG}" ]; then
-    TRIGGER_REASON="An Ubuntu base package change was detected for ${LS_REPO} old md5:${PACKAGE_TAG} new md5:${CURRENT_PACKAGE}"
-    trigger_build
-  fi
-fi
-
-
 ######################################
 # External Software Release Triggers #
 ######################################
-
-# This is a debian repo package trigger
-if [ "${TRIGGER_TYPE}" == "deb_repo" ]; then
-  echo "This is an deb repo package trigger"
-  # Pull the latest image
-  docker pull ${DIST_IMAGE}:${DIST_TAG}
-  # Determine the current tag
-  CURRENT_PACKAGE=$(docker run --rm ${DIST_IMAGE}:${DIST_TAG} bash -c\
-                    'echo -e "'"${DIST_REPO}"'" > /etc/apt/sources.list.d/check.list \
-                     && apt-get --allow-unauthenticated update -qq >/dev/null 2>&1\
-                     && apt-cache --no-all-versions show '"${DIST_REPO_PACKAGES}"' | md5sum | cut -c1-8')
-  # If the current tag does not match the external release then trigger a build
-  if [ "${CURRENT_PACKAGE}" != "${EXTERNAL_TAG}" ]; then
-    TRIGGER_REASON="A Debian package update has been detected for the ${LS_REPO} old md5:${EXTERNAL_TAG} new md5:${CURRENT_PACKAGE}"
-    trigger_build
-  else
-    echo "Nothing to do release is up to date"
-  fi
-fi
 
 # This is an external file blob release
 if [ "${TRIGGER_TYPE}" == "external_blob" ]; then
@@ -206,20 +126,33 @@ if [ "${TRIGGER_TYPE}" == "external_blob" ]; then
   fi
 fi
 
-
-# This is an Alpine repo trigger
-if [ "${TRIGGER_TYPE}" == "alpine_repo" ]; then
-  echo "This is an alpine package trigger"
-  # Pull the latest alpine image
-  docker pull alpine:${DIST_TAG}
-  # Determine the current tag
-  CURRENT_PACKAGE=$(docker run --rm alpine:${DIST_TAG} sh -c 'apk update --quiet --repository '"${DIST_REPO}"'\
-  && apk info --repository '"${DIST_REPO}"' '"${DIST_REPO_PACKAGES}"' | md5sum | cut -c1-8')
+# This is a appveyor trigger
+if [ "${TRIGGER_TYPE}" == "appveyor" ]; then
+  echo "This is an appveyor trigger"
+  # Determine the current version from appveyor
+  PROJECT_USER="$(echo "${VEYOR_VARS}" | cut -d'|' -f1)"
+  PROJECT_NAME="$(echo "${VEYOR_VARS}" | cut -d'|' -f2)"
+  PROJECT_FILE="$(echo "${VEYOR_VARS}" | cut -d'|' -f3)"
+  PROJECT_BRANCH="$(echo "${VEYOR_VARS}" | cut -d'|' -f4)"
+  FULL_URL="https://ci.appveyor.com/api/projects/${PROJECT_USER}/${PROJECT_NAME}/artifacts/${PROJECT_FILE}?branch=${PROJECT_BRANCH}&pr=false"
+    # Make sure appveyor returns a 200
+    RESP=$(curl -Ls -w "%{http_code}" -o /dev/null "${FULL_URL}")
+    if [ ${RESP} == 200 ]; then
+      CURRENT_TAG=$(curl -Ls -w %{url_effective} -o /dev/null "${FULL_URL}" | awk -F / '{print $6}' | sed 's/-/./g')
+    else
+      echo "200 failed"
+      FAILURE_REASON='Unable to get the URL:'"${FULL_URL}"' for '"${LS_REPO}"' make sure URLs used to trigger are up to date'
+      tell_discord_fail
+      exit 0
+    fi
   # If the current tag does not match the external release then trigger a build
-  if [ "${CURRENT_PACKAGE}" != "${EXTERNAL_TAG}" ]; then
-    TRIGGER_REASON="An Alpine repo package change was detected for ${LS_REPO} old md5:${EXTERNAL_TAG} new md5:${CURRENT_PACKAGE}"
+  if [ "${CURRENT_TAG}" != "${EXTERNAL_TAG}" ]; then
+    echo "ext: ${EXTERNAL_TAG}"
+    echo "current: ${CURRENT_TAG}"
+    TRIGGER_REASON='An version change was detected for '"${LS_REPO}"' at the URL:'"${FULL_URL}"' old version:'"${EXTERNAL_TAG}"' new version:'"${CURRENT_TAG}"
     trigger_build
   else
     echo "Nothing to do release is up to date"
   fi
 fi
+
