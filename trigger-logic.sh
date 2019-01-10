@@ -94,8 +94,7 @@ function tell_discord_fail {
 # Trigger the build for this triggers job
 function trigger_build {
   curl -X POST \
-      https://ci.linuxserver.io/job/Docker-Pipeline-Builders/job/${LS_REPO}/job/${LS_BRANCH}/build \
-      --user ${JENKINS_USER}:${JENKINS_API_KEY}
+      https://ci.linuxserver.io/job/Docker-Pipeline-Builders/job/${LS_REPO}/job/${LS_BRANCH}/build?TOKEN=${JENKINS_API_KEY}
   tell_discord
 }
 
