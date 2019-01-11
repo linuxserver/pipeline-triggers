@@ -135,12 +135,11 @@ if [ "${TRIGGER_TYPE}" == "appveyor" ]; then
   PROJECT_FILE="$(echo "${VEYOR_VARS}" | cut -d'|' -f3)"
   PROJECT_BRANCH="$(echo "${VEYOR_VARS}" | cut -d'|' -f4)"
   FULL_URL="https://ci.appveyor.com/api/projects/${PROJECT_USER}/${PROJECT_NAME}/artifacts/${PROJECT_FILE}?branch=${PROJECT_BRANCH}&pr=false"
-    # Make sure appveyor returns a 200
+    # Make sure appveyor returns a 404
     RESP=$(curl -Ls -w "%{http_code}" -o /dev/null "${FULL_URL}")
-    if [ ${RESP} == 200 ]; then
+    if [ ${RESP} == 404 ]; then
       CURRENT_TAG=$(curl -Ls -w %{url_effective} -o /dev/null "${FULL_URL}" | awk -F / '{print $6}' | sed 's/-/./g')
     else
-      echo "200 failed"
       FAILURE_REASON='Unable to get the URL:'"${FULL_URL}"' for '"${LS_REPO}"' make sure URLs used to trigger are up to date'
       tell_discord_fail
       exit 0
