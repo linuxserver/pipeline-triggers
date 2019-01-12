@@ -4,11 +4,9 @@
 #################################
 ## Current Build trigger types ##
 #################################
-# alpine_package - an array of alpine packages is passed and all their versions are taken from head an md5 is generated to tag their version
-# ubuntu_package - an array of alpine packages is passed and all their versions are taken from head an md5 is generated to tag their version
-# deb_repo - One or more external repos is used to check an array of packages versions and generate an md5 hash
-# alpine_repo - One external repo is used to check an array of packages versions and generate an md5 hash
 # external_blob - An external file blob is downloaded and an md5 is generated to determine the external version
+# appveyor - A mostly custom curl command to get a redirect URL and parse it form appveyor
+# custom_jq - When you need to perform advanced jq operations for an external API response
 
 ################
 # Set Varibles #
@@ -56,6 +54,14 @@ case $i in
   ;;
   -VEYOR_VARS=*)
   VEYOR_VARS="${i#*=}"
+  shift
+  ;;
+  -JQ_URL=*)
+  JQ_URL="${i#*=}"
+  shift
+  ;;
+  -JQ_LOGIC=*)
+  JQ_LOGIC="${i#*=}"
   shift
   ;;
 esac
@@ -155,3 +161,26 @@ if [ "${TRIGGER_TYPE}" == "appveyor" ]; then
   fi
 fi
 
+# This is a jq trigger
+if [ "${TRIGGER_TYPE}" == "custom_jq" ]; then
+  echo "This is a custom jq trigger"
+  # Determine the current version from the jq command
+    # Make sure the endppoint returns a 200
+    RESP=$(curl -Ls -w "%{http_code}" -o /dev/null "${JQ_URL}")
+    if [ ${RESP} == 200 ]; then
+      CURRENT_TAG=$(curl -s "${JQ_URL}" | jq -r ". | ${JQ_LOGIC}")
+    else
+      FAILURE_REASON='Unable to get the URL:'"${JQ_URL}"' for '"${LS_REPO}"' make sure URLs used to trigger are up to date'
+      tell_discord_fail
+      exit 0
+    fi
+  # If the current tag does not match the external release then trigger a build
+  if [ "${CURRENT_TAG}" != "${EXTERNAL_TAG}" ]; then
+    echo "ext: ${EXTERNAL_TAG}"
+    echo "current: ${CURRENT_TAG}"
+    TRIGGER_REASON='An version change was detected for '"${LS_REPO}"' at the URL:'"${JQ_URL}"' old version:'"${EXTERNAL_TAG}"' new version:'"${CURRENT_TAG}"
+    trigger_build
+  else
+    echo "Nothing to do release is up to date"
+  fi
+fi
