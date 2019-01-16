@@ -25,6 +25,7 @@
           + [Set an ENV argument for post build installation](#set-an-env-argument-for-post-build-installation)
       - [Multi Arch and cross-building](#multi-arch-and-cross-building)
       - [Setting up a Jenkins Build slave](#setting-up-a-jenkins-build-slave)
+      - [Migrating builds to pipeline](#migrating-builds-to-pipeline)
 
 ## Intro
 
@@ -514,3 +515,15 @@ Since the build process commits to our repos we need to set a global username an
 git config --global user.email "ci@linuxserver.io"
 git config --global user.name "LinuxServer-CI"
 ```
+
+#### Migrating builds to pipeline
+
+1. Create PR from the pipeline branch into master, check for successful PR build.
+2. Log into jenkins, go to `Docker-Builders/X86_64` and disable the main and PR build jobs.
+3. Merge PR branch into master, check for successful build and push to docker hub.
+4. Create deprecation PRs for the armhf and aarch64 repos similar to [here](https://github.com/linuxserver/docker-duckdns-armhf/pull/8/files), add deprecation notice and changelog entry to the readme and add the `90-config` file to echo deprecation notice to docker log.
+5. Once approved and merged, check for successful push of deprecation builds to docker hub.
+6. Log into jenkins, go to `Docker-Builders/armhf` and `Docker-Builders/arm64` and disable the main and PR build jobs.
+7. Create the package trigger and if necessary the external trigger on jenkins.
+8. Update the tracking document pinned to the #builds channel on discord.
+9. Have yourself a beer or a cookie.
