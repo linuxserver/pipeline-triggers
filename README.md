@@ -488,18 +488,23 @@ apt-get update && apt-get install docker-ce -y
 ```
 
 
-To allow multi-arch builds first you need to register the interpreters with Docker using:
+To allow multi-arch builds first you need to register the interpreters with Docker and it needs to be done every time the docker service is re/started. This can be accomplished by creating a new systemd service (ie. `/lib/systemd/system/multiarch.service`) with the following content
 
 ```
-docker run --rm --privileged multiarch/qemu-user-static:register --reset
+[Unit]
+Description=Multi-arch docker builds
+Requires=docker.service
+After=docker.service
 
+[Service]
+Type=simple
+ExecStart=/usr/bin/docker run --rm --privileged multiarch/qemu-user-static:register --reset
+
+[Install]
+WantedBy=docker.service
 ```
 
-This needs to be repeated every time docker service is restarted. To automate, you can modify the systemd service for docker by adding the following to `/etc/systemd/system/multi-user.target.wants/docker.service` right underneath the ExecStart:
-```
-ExecStartPost=/usr/bin/docker run --rm --privileged multiarch/qemu-user-static:register --reset
-```
-*Keep in mind that every time docker package is updated, docker.service needs to be edited again*  
+and enabling it via `sudo systemctl enable multiarch.service`. The command should now run every time the docker service is re/started.
   
 
 Then enable experimental CLI features:
