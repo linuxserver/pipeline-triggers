@@ -145,6 +145,13 @@ if [ "${TRIGGER_TYPE}" == "appveyor" ]; then
     RESP=$(curl -Ls -w "%{http_code}" -o /dev/null "${FULL_URL}")
     if [ ${RESP} == 404 ]; then
       CURRENT_TAG=$(curl -Ls -w %{url_effective} -o /dev/null "${FULL_URL}" | awk -F / '{print $6}' | sed 's/-/./g')
+      CURRENT_TAG_CHECK=$(echo ${CURRENT_TAG} | tr -d '.[0-9]' | wc -c)
+      # Check if the version string has more than 1 character outside of numbers and dots
+      if [ "${CURRENT_TAG_CHECK}" -gt 2 ]; then
+        FAILURE_REASON='We did not get a standard version number back from:'"${FULL_URL}"' for '"${LS_REPO}"' actual string '"${CURRENT_TAG}"' '
+        tell_discord_fail
+        exit 0
+      fi
     else
       FAILURE_REASON='Unable to get the URL:'"${FULL_URL}"' for '"${LS_REPO}"' make sure URLs used to trigger are up to date'
       tell_discord_fail
