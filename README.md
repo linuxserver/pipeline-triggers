@@ -131,30 +131,47 @@ Here we poll this URL every 15 minutes and check the release tag for changes in 
 
 Some projects either do not live on GitHub or their release process requires us to do some unorthodox things to determine if there is a new release. These specialized checks live in bash in the logic script and are executed on a timed basis to consistently reach out and check for new versions.
 
-In this example we will be checking an external file blob for a Plex deb package. The full job configuration can be seen here:
+In this example we will be checking an external Debian style repo for a change to mariadb:
 
-https://pipeline.linuxserver.io/job/external-trigger-docker-plex/configure
+https://ci.linuxserver.io/job/External-Triggers/maridb-external-trigger
 
-Here we are passing a file to the parameters that will be downloaded and referenced by this code segment in the trigger-logic to calculate an MD5 for the file:
+Here we are passing debian repo URL and the package name we want to parse out to this logic:
 
 ```
-# This is an external file blob release
-if [ "${TRIGGER_TYPE}" == "external_blob" ]; then
-  echo "This is an External file blob package trigger"
-  # Determine the current md5 for the file blob
-    # Make sure the remote file returns a 200 status or fail
-    if [ $(curl -I -sL -w "%{http_code}" "${EXT_BLOB}" -o /dev/null) == 200 ]; then
-      CURRENT_MD5=$(curl -s -L "${EXT_BLOB}" | md5sum | cut -c1-8)
+# This is a Deb Package trigger
+if [ "${TRIGGER_TYPE}" == "deb_package" ]; then
+  echo "This is a deb package trigger"
+  # Determine the current version
+    # Make sure the endppoint returns a 200
+    RESP=$(curl -Ls -w "%{http_code}" -o /dev/null "${DEB_PACKAGES_URL}")
+    if [ ${RESP} == 200 ]; then
+      if [[ ${DEB_PACKAGES_URL} == *".gz" ]]; then
+        if [ -z ${DEB_CUSTOM_PARSE+x} ]; then
+          CURRENT_TAG=$(curl -sX GET ${DEB_PACKAGES_URL} | gunzip -c |grep -A 7 -m 1 "Package: ${DEB_PACKAGE}" | awk -F ': ' '/Version/{print $2;exit}')
+        else
+          CURRENT_TAG_UNPARSED=$(curl -sX GET ${DEB_PACKAGES_URL} | gunzip -c |grep -A 7 -m 1 "Package: ${DEB_PACKAGE}" | awk -F ': ' '/Version/{print $2;exit}')
+          CURRENT_TAG=$(bash -c "echo ${CURRENT_TAG_UNPARSED}| ${DEB_CUSTOM_PARSE}")
+        fi
+      else
+        if [ -z ${DEB_CUSTOM_PARSE+x} ]; then
+          CURRENT_TAG=$(curl -sX GET ${DEB_PACKAGES_URL} |grep -A 7 -m 1 "Package: ${DEB_PACKAGE}" | awk -F ': ' '/Version/{print $2;exit}')
+        else
+          CURRENT_TAG_UNPARSED=$(curl -sX GET ${DEB_PACKAGES_URL} |grep -A 7 -m 1 "Package: ${DEB_PACKAGE}" | awk -F ': ' '/Version/{print $2;exit}')
+          CURRENT_TAG=$(bash -c "echo ${CURRENT_TAG_UNPARSED}| ${DEB_CUSTOM_PARSE}")
+        fi
+      fi
     else
-      FAILURE_REASON='Unable to get the URL:'"${EXT_BLOB}"' for '"${LS_REPO}"' make sure URLs used to trigger are up to date'
+      FAILURE_REASON='Unable to get the URL:'"${DEB_PACKAGES_URL}"' for '"${LS_REPO}"' make sure URLs used to trigger are up to date'
       tell_discord_fail
       exit 0
     fi
+  # Sanitize the tag
+  CURRENT_TAG=$(echo ${CURRENT_TAG} | sed 's/[~,%@+;:/]//g')
   # If the current tag does not match the external release then trigger a build
-  if [ "${CURRENT_MD5}" != "${EXTERNAL_TAG}" ]; then
+  if [ "${CURRENT_TAG}" != "${EXTERNAL_TAG}" ]; then
     echo "ext: ${EXTERNAL_TAG}"
-    echo "current:${CURRENT_MD5}"
-    TRIGGER_REASON='An external file change was detected for '"${LS_REPO}"' at the URL:'"${EXT_BLOB}"' old md5:'"${EXTERNAL_TAG}"' new md5:'"${CURRENT_MD5}"
+    echo "current: ${CURRENT_TAG}"
+    TRIGGER_REASON='An version change was detected for '"${LS_REPO}"' at the URL:'"${DEB_PACKAGES_URL}"' old version:'"${EXTERNAL_TAG}"' new version:'"${CURRENT_TAG}"
     trigger_build
   else
     echo "Nothing to do release is up to date"
@@ -162,7 +179,23 @@ if [ "${TRIGGER_TYPE}" == "external_blob" ]; then
 fi
 ```
 
-If the MD5 does not match the current release, a build will be triggered.
+The Specific bash logic is as follows for calling the trigger script:
+
+```
+./trigger-logic.sh \
+-TRIGGER_TYPE="deb_package" \
+-LS_USER="linuxserver" \
+-LS_REPO="docker-mariadb" \
+-LS_BRANCH="master" \
+-LS_RELEASE_TYPE="stable" \
+-DEB_PACKAGES_URL="http://mirror.sax.uk.as61049.net/mariadb/repo/10.3/ubuntu/dists/bionic/main/binary-amd64/Packages" \
+-DEB_PACKAGE="mariadb-server" \
+-BUILDS_DISCORD=${BUILDS_DISCORD} \
+-JENKINS_USER=thelamer \
+-JENKINS_API_KEY=${JENKINS_API_KEY}
+```
+
+If the Tag does not match we will trigger a build on the master branch of docker-mariadb. 
 
 ## The JenkinsFile
 

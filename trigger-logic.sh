@@ -64,6 +64,22 @@ case $i in
   JQ_LOGIC="${i#*=}"
   shift
   ;;
+  -DEB_PACKAGES_URL=*)
+  DEB_PACKAGES_URL="${i#*=}"
+  shift
+  ;;
+  -DEB_PACKAGE=*)
+  DEB_PACKAGE="${i#*=}"
+  shift
+  ;;
+  -DEB_CUSTOM_PARSE=*)
+  DEB_CUSTOM_PARSE="${i#*=}"
+  shift
+  ;;
+  -JQ_CUSTOM_PARSE=*)
+  JQ_CUSTOM_PARSE="${i#*=}"
+  shift
+  ;;
 esac
 done
 
@@ -73,7 +89,7 @@ if [ "${LS_RELEASE_TYPE}" == "stable" ]; then
   EXTERNAL_TAG=$(echo ${LS_RELEASE} | awk -F'-pkg-' '{print $1}')
   PACKAGE_TAG=$(echo ${LS_RELEASE} | grep -o -P '(?<=-pkg-).*(?=-ls)')
   LS_VERSION=$(echo ${LS_RELEASE} | sed 's/^.*-ls//g')
-elif [ "${LS_RELEASE_TYPE}" == "prerelease" ]; then 
+elif [ "${LS_RELEASE_TYPE}" == "prerelease" ]; then
   LS_RELEASE=$(curl -s https://api.github.com/repos/${LS_USER}/${LS_REPO}/releases | jq -r 'first(.[] | select(.prerelease == true)) | .tag_name')
   EXTERNAL_TAG=$(echo ${LS_RELEASE} | awk -F'-pkg-' '{print $1}')
   PACKAGE_TAG=$(echo ${LS_RELEASE} | grep -o -P '(?<=-pkg-).*(?=-ls)')
@@ -121,6 +137,8 @@ if [ "${TRIGGER_TYPE}" == "external_blob" ]; then
       tell_discord_fail
       exit 0
     fi
+  # Sanitize the tag
+  CURRENT_TAG=$(echo ${CURRENT_TAG} | sed 's/[~,%@+;:/]//g')
   # If the current tag does not match the external release then trigger a build
   if [ "${CURRENT_MD5}" != "${EXTERNAL_TAG}" ]; then
     echo "ext: ${EXTERNAL_TAG}"
@@ -157,6 +175,8 @@ if [ "${TRIGGER_TYPE}" == "appveyor" ]; then
       tell_discord_fail
       exit 0
     fi
+  # Sanitize the tag
+  CURRENT_TAG=$(echo ${CURRENT_TAG} | sed 's/[~,%@+;:/]//g')
   # If the current tag does not match the external release then trigger a build
   if [ "${CURRENT_TAG}" != "${EXTERNAL_TAG}" ]; then
     echo "ext: ${EXTERNAL_TAG}"
@@ -175,17 +195,64 @@ if [ "${TRIGGER_TYPE}" == "custom_jq" ]; then
     # Make sure the endppoint returns a 200
     RESP=$(curl -Ls -w "%{http_code}" -o /dev/null "${JQ_URL}")
     if [ ${RESP} == 200 ]; then
-      CURRENT_TAG=$(curl -s "${JQ_URL}" | jq -r ". | ${JQ_LOGIC}")
+      if [ -z ${JQ_CUSTOM_PARSE+x} ]; then
+        CURRENT_TAG=$(curl -sL "${JQ_URL}" | jq -r ". | ${JQ_LOGIC}")
+      else
+        CURRENT_TAG_UNPARSED=$(curl -sL "${JQ_URL}" | jq -r ". | ${JQ_LOGIC}")
+        CURRENT_TAG=$(bash -c "echo ${CURRENT_TAG_UNPARSED}| ${JQ_CUSTOM_PARSE}")
+      fi
     else
       FAILURE_REASON='Unable to get the URL:'"${JQ_URL}"' for '"${LS_REPO}"' make sure URLs used to trigger are up to date'
       tell_discord_fail
       exit 0
     fi
+  # Sanitize the tag
+  CURRENT_TAG=$(echo ${CURRENT_TAG} | sed 's/[~,%@+;:/]//g')
   # If the current tag does not match the external release then trigger a build
   if [ "${CURRENT_TAG}" != "${EXTERNAL_TAG}" ]; then
     echo "ext: ${EXTERNAL_TAG}"
     echo "current: ${CURRENT_TAG}"
     TRIGGER_REASON='An version change was detected for '"${LS_REPO}"' at the URL:'"${JQ_URL}"' old version:'"${EXTERNAL_TAG}"' new version:'"${CURRENT_TAG}"
+    trigger_build
+  else
+    echo "Nothing to do release is up to date"
+  fi
+fi
+
+# This is a Deb Package trigger
+if [ "${TRIGGER_TYPE}" == "deb_package" ]; then
+  echo "This is a deb package trigger"
+  # Determine the current version
+    # Make sure the endppoint returns a 200
+    RESP=$(curl -Ls -w "%{http_code}" -o /dev/null "${DEB_PACKAGES_URL}")
+    if [ ${RESP} == 200 ]; then
+      if [[ ${DEB_PACKAGES_URL} == *".gz" ]]; then
+        if [ -z ${DEB_CUSTOM_PARSE+x} ]; then
+          CURRENT_TAG=$(curl -sX GET ${DEB_PACKAGES_URL} | gunzip -c |grep -A 7 -m 1 "Package: ${DEB_PACKAGE}" | awk -F ': ' '/Version/{print $2;exit}')
+        else
+          CURRENT_TAG_UNPARSED=$(curl -sX GET ${DEB_PACKAGES_URL} | gunzip -c |grep -A 7 -m 1 "Package: ${DEB_PACKAGE}" | awk -F ': ' '/Version/{print $2;exit}')
+          CURRENT_TAG=$(bash -c "echo ${CURRENT_TAG_UNPARSED}| ${DEB_CUSTOM_PARSE}")
+        fi
+      else
+        if [ -z ${DEB_CUSTOM_PARSE+x} ]; then
+          CURRENT_TAG=$(curl -sX GET ${DEB_PACKAGES_URL} |grep -A 7 -m 1 "Package: ${DEB_PACKAGE}" | awk -F ': ' '/Version/{print $2;exit}')
+        else
+          CURRENT_TAG_UNPARSED=$(curl -sX GET ${DEB_PACKAGES_URL} |grep -A 7 -m 1 "Package: ${DEB_PACKAGE}" | awk -F ': ' '/Version/{print $2;exit}')
+          CURRENT_TAG=$(bash -c "echo ${CURRENT_TAG_UNPARSED}| ${DEB_CUSTOM_PARSE}")
+        fi
+      fi
+    else
+      FAILURE_REASON='Unable to get the URL:'"${DEB_PACKAGES_URL}"' for '"${LS_REPO}"' make sure URLs used to trigger are up to date'
+      tell_discord_fail
+      exit 0
+    fi
+  # Sanitize the tag
+  CURRENT_TAG=$(echo ${CURRENT_TAG} | sed 's/[~,%@+;:/]//g')
+  # If the current tag does not match the external release then trigger a build
+  if [ "${CURRENT_TAG}" != "${EXTERNAL_TAG}" ]; then
+    echo "ext: ${EXTERNAL_TAG}"
+    echo "current: ${CURRENT_TAG}"
+    TRIGGER_REASON='An version change was detected for '"${LS_REPO}"' at the URL:'"${DEB_PACKAGES_URL}"' old version:'"${EXTERNAL_TAG}"' new version:'"${CURRENT_TAG}"
     trigger_build
   else
     echo "Nothing to do release is up to date"
