@@ -133,7 +133,7 @@ Some projects either do not live on GitHub or their release process requires us 
 
 In this example we will be checking an external Debian style repo for a change to mariadb:
 
-https://ci.linuxserver.io/job/External-Triggers/maridb-external-trigger
+https://ci.linuxserver.io/job/External-Triggers/job/mariadb-external-trigger/
 
 Here we are passing debian repo URL and the package name we want to parse out to this logic:
 
