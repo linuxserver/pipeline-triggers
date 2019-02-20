@@ -7,6 +7,8 @@
 # external_blob - An external file blob is downloaded and an md5 is generated to determine the external version
 # appveyor - A mostly custom curl command to get a redirect URL and parse it form appveyor
 # custom_jq - When you need to perform advanced jq operations for an external API response
+# deb_package - When you need to pull a version of a package from a debian style repo endpoint
+# full_custom - Raw bash exec of a command for corner cases and extreme verisoning
 
 ################
 # Set Varibles #
@@ -78,6 +80,10 @@ case $i in
   ;;
   -JQ_CUSTOM_PARSE=*)
   JQ_CUSTOM_PARSE="${i#*=}"
+  shift
+  ;;
+  -FULL_CUSTOM=*)
+  FULL_CUSTOM="${i#*=}"
   shift
   ;;
 esac
@@ -258,3 +264,29 @@ if [ "${TRIGGER_TYPE}" == "deb_package" ]; then
     echo "Nothing to do release is up to date"
   fi
 fi
+
+# This is a very custom trigger
+# The custom bash you pass to this trigger needs to have some kind of logic to exit badly if a remote resource is not available
+if [ "${TRIGGER_TYPE}" == "full_custom" ]; then
+  echo "This is a full custom trigger"
+  # Determine the current version
+  CURRENT_TAG=$(bash -c "${FULL_CUSTOM}")
+  # Detect failure in command
+  if [ "$?" -ne 0 ]; then
+    FAILURE_REASON='Unable to execute custom version command for '"${LS_REPO}"' make sure this command still works in Jenkins'
+    tell_discord_fail
+    exit 0
+  fi
+  # Sanitize the tag
+  CURRENT_TAG=$(echo ${CURRENT_TAG} | sed 's/[~,%@+;:/]//g')
+  # If the current tag does not match the external release then trigger a build
+  if [ "${CURRENT_TAG}" != "${EXTERNAL_TAG}" ]; then
+    echo "ext: ${EXTERNAL_TAG}"
+    echo "current: ${CURRENT_TAG}"
+    TRIGGER_REASON='An version change was detected for '"${LS_REPO}"' old version:'"${EXTERNAL_TAG}"' new version:'"${CURRENT_TAG}"
+    trigger_build
+  else
+    echo "Nothing to do release is up to date"
+  fi
+fi
+
