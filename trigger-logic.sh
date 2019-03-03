@@ -102,6 +102,7 @@ elif [ "${LS_RELEASE_TYPE}" == "prerelease" ]; then
   LS_VERSION=$(echo ${LS_RELEASE} | sed 's/^.*-ls//g')
 fi
 
+
 #############
 # Functions #
 #############
@@ -126,6 +127,18 @@ function trigger_build {
       --user ${JENKINS_USER}:${JENKINS_API_KEY}
   tell_discord
 }
+
+################
+# Input Checks #
+################
+
+# Fail on nulls or unset variables for comparison from Github
+if [ -z "${LS_RELEASE}" ]; then
+  FAILURE_REASON='Unable to get version information from Github for '"${LS_REPO}"' '
+  tell_discord_fail
+  exit 0
+fi
+
 
 ######################################
 # External Software Release Triggers #
