@@ -213,7 +213,7 @@ if [ "${TRIGGER_TYPE}" == "custom_jq" ]; then
   # Determine the current version from the jq command
     # Make sure the endppoint returns a 200
     RESP=$(curl -Ls -w "%{http_code}" -o /dev/null "${JQ_URL}")
-    if [ ${RESP} == 200 ]; then
+    if [ ${RESP} == 200 ] || [ ${RESP} == 000 ] ; then
       if [ -z ${JQ_CUSTOM_PARSE+x} ]; then
         CURRENT_TAG=$(curl -sL "${JQ_URL}" | jq -r ". | ${JQ_LOGIC}")
       else
