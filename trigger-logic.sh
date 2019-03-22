@@ -8,10 +8,10 @@
 # appveyor - A mostly custom curl command to get a redirect URL and parse it form appveyor
 # custom_jq - When you need to perform advanced jq operations for an external API response
 # deb_package - When you need to pull a version of a package from a debian style repo endpoint
-# full_custom - Raw bash exec of a command for corner cases and extreme verisoning
+# full_custom - Raw bash exec of a command for corner cases and extreme versioning
 
 ################
-# Set Varibles #
+# Set Variables #
 ################
 
 # Set Parameters
@@ -89,19 +89,6 @@ case $i in
 esac
 done
 
-# Get the current release info
-if [ "${LS_RELEASE_TYPE}" == "stable" ]; then
-  LS_RELEASE=$(curl -s https://api.github.com/repos/${LS_USER}/${LS_REPO}/releases/latest | jq -r '. | .name')
-  EXTERNAL_TAG=$(echo ${LS_RELEASE} | awk -F'-pkg-' '{print $1}')
-  PACKAGE_TAG=$(echo ${LS_RELEASE} | grep -o -P '(?<=-pkg-).*(?=-ls)')
-  LS_VERSION=$(echo ${LS_RELEASE} | sed 's/^.*-ls//g')
-elif [ "${LS_RELEASE_TYPE}" == "prerelease" ]; then
-  LS_RELEASE=$(curl -s https://api.github.com/repos/${LS_USER}/${LS_REPO}/releases | jq -r 'first(.[] | select(.prerelease == true)) | .tag_name')
-  EXTERNAL_TAG=$(echo ${LS_RELEASE} | awk -F'-pkg-' '{print $1}')
-  PACKAGE_TAG=$(echo ${LS_RELEASE} | grep -o -P '(?<=-pkg-).*(?=-ls)')
-  LS_VERSION=$(echo ${LS_RELEASE} | sed 's/^.*-ls//g')
-fi
-
 
 #############
 # Functions #
@@ -128,13 +115,71 @@ function trigger_build {
   tell_discord
 }
 
+# Retrieve the latest image info from docker hub
+function get_image_info {
+
+  local repo=$(echo $LS_REPO | sed 's/docker-//g' )
+  local image="linuxserver/${repo}"
+  if [ "${LS_RELEASE_TYPE}" == "stable" ]; then
+    local tag="latest"
+  elif [ "${LS_RELEASE_TYPE}" == "prerelease" ]; then
+    local tag="${LS_BRANCH}"
+  fi
+  local token=$(get_token $image)
+  local digest=$(get_digest $image $tag $token)
+
+  get_image_configuration $image $token $digest
+}
+
+function get_image_configuration() {
+  local image=$1
+  local token=$2
+  local digest=$3
+
+  curl \
+    --silent \
+    --location \
+    --header "Authorization: Bearer $token" \
+    "https://registry-1.docker.io/v2/$image/blobs/$digest" \
+    | jq -r '.container_config'
+}
+
+function get_token() {
+  local image=$1
+
+  curl \
+    --silent \
+    "https://auth.docker.io/token?scope=repository:$image:pull&service=registry.docker.io" \
+    | jq -r '.token'
+}
+
+function get_digest() {
+  local image=$1
+  local tag=$2
+  local token=$3
+
+  curl \
+    --silent \
+    --header "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+    --header "Authorization: Bearer $token" \
+    "https://registry-1.docker.io/v2/$image/manifests/$tag" \
+    | jq -r '.config.digest'
+}
+
+
+# Get the current release info from Docker Hub
+LS_RELEASE=$(get_image_info | jq -r '.Labels.build_version' | awk '{print $3}')
+EXTERNAL_TAG=$(echo ${LS_RELEASE} | awk -F'-ls' '{print $1}')
+LS_VERSION=$(echo ${LS_RELEASE} | sed 's/^.*-ls//g')
+
+
 ################
 # Input Checks #
 ################
 
-# Fail on nulls or unset variables for comparison from Github
+# Fail on nulls or unset variables for comparison from Docker Hub
 if [ -z "${LS_RELEASE}" ]; then
-  FAILURE_REASON='Unable to get version information from Github for '"${LS_REPO}"' '
+  FAILURE_REASON='Unable to get version information from Docker Hub for '"${LS_REPO}"' '
   tell_discord_fail
   exit 0
 fi
@@ -200,7 +245,7 @@ if [ "${TRIGGER_TYPE}" == "appveyor" ]; then
   if [ "${CURRENT_TAG}" != "${EXTERNAL_TAG}" ]; then
     echo "ext: ${EXTERNAL_TAG}"
     echo "current: ${CURRENT_TAG}"
-    TRIGGER_REASON='An version change was detected for '"${LS_REPO}"' at the URL:'"${FULL_URL}"' old version:'"${EXTERNAL_TAG}"' new version:'"${CURRENT_TAG}"
+    TRIGGER_REASON='A version change was detected for '"${LS_REPO}"' at the URL:'"${FULL_URL}"' old version:'"${EXTERNAL_TAG}"' new version:'"${CURRENT_TAG}"
     trigger_build
   else
     echo "Nothing to do release is up to date"
@@ -231,7 +276,7 @@ if [ "${TRIGGER_TYPE}" == "custom_jq" ]; then
   if [ "${CURRENT_TAG}" != "${EXTERNAL_TAG}" ]; then
     echo "ext: ${EXTERNAL_TAG}"
     echo "current: ${CURRENT_TAG}"
-    TRIGGER_REASON='An version change was detected for '"${LS_REPO}"' at the URL:'"${JQ_URL}"' old version:'"${EXTERNAL_TAG}"' new version:'"${CURRENT_TAG}"
+    TRIGGER_REASON='A version change was detected for '"${LS_REPO}"' at the URL:'"${JQ_URL}"' old version:'"${EXTERNAL_TAG}"' new version:'"${CURRENT_TAG}"
     trigger_build
   else
     echo "Nothing to do release is up to date"
@@ -271,7 +316,7 @@ if [ "${TRIGGER_TYPE}" == "deb_package" ]; then
   if [ "${CURRENT_TAG}" != "${EXTERNAL_TAG}" ]; then
     echo "ext: ${EXTERNAL_TAG}"
     echo "current: ${CURRENT_TAG}"
-    TRIGGER_REASON='An version change was detected for '"${LS_REPO}"' at the URL:'"${DEB_PACKAGES_URL}"' old version:'"${EXTERNAL_TAG}"' new version:'"${CURRENT_TAG}"
+    TRIGGER_REASON='A version change was detected for '"${LS_REPO}"' at the URL:'"${DEB_PACKAGES_URL}"' old version:'"${EXTERNAL_TAG}"' new version:'"${CURRENT_TAG}"
     trigger_build
   else
     echo "Nothing to do release is up to date"
@@ -296,7 +341,7 @@ if [ "${TRIGGER_TYPE}" == "full_custom" ]; then
   if [ "${CURRENT_TAG}" != "${EXTERNAL_TAG}" ]; then
     echo "ext: ${EXTERNAL_TAG}"
     echo "current: ${CURRENT_TAG}"
-    TRIGGER_REASON='An version change was detected for '"${LS_REPO}"' old version:'"${EXTERNAL_TAG}"' new version:'"${CURRENT_TAG}"
+    TRIGGER_REASON='A version change was detected for '"${LS_REPO}"' old version:'"${EXTERNAL_TAG}"' new version:'"${CURRENT_TAG}"
     trigger_build
   else
     echo "Nothing to do release is up to date"
