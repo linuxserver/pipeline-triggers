@@ -25,7 +25,7 @@
           + [Set an ENV argument for post build installation](#set-an-env-argument-for-post-build-installation)
       - [Multi Arch and cross-building](#multi-arch-and-cross-building)
       - [Setting up a Jenkins Build slave](#setting-up-a-jenkins-build-slave)
-      - [Migrating builds to pipeline](#migrating-builds-to-pipeline)
+      - [Running from SSD on arm devices](#running-from-ssd-on-arm-devices)
 
 ## Intro
 
