@@ -513,7 +513,7 @@ It is important to note that qemu emulation is not perfect, but it is very usefu
 Jenkins build slaves work by being accessible via SSH and having some core programs installed we use for the build process here are the steps to preparing a jenkins build slave:
 
 1. Create a user `jenkins` (does not need sudo access)
-2. Get the public ssh key from the team and put into `/home/jenkins/.ssh/autorized_keys` and set the permissions for the file and its parent folder
+2. Get the public ssh key from the team and put into `/home/jenkins/.ssh/authorized_keys` and set the permissions for the file and its parent folder
 3. Install dependencies (debian example, modify for your distro accordingly)
 
     ```
