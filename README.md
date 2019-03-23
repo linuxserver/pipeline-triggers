@@ -562,7 +562,7 @@ Jenkins build slaves work by being accessible via SSH and having some core progr
     WantedBy=docker.service
     ```
   
-8. *[X86_64 only]* Enable experimental CLI features:
+8. *[X86_64 only]* Enable experimental CLI features (make sure the file is owned by the user `jenkins`):
 
     ```
     echo '{"experimental": "enabled"}' > /home/jenkins/.docker/config.json
@@ -573,7 +573,7 @@ Jenkins build slaves work by being accessible via SSH and having some core progr
 
 #### Running from SSD on arm devices
 
-Arm devices often fail during long builds due to SD cards and poor IO. On most arm devices you can move the bootfs to an external SSD connected via a USB-SATA adapter, which yields a much higher stability.  
+Arm devices often fail during long builds due to SD cards and poor IO. On most arm devices you can move the bootfs to an external SSD connected via a USB-SATA adapter, which yields much higher stability.  
 
 Hardware needed:
 1. 128GB SSD (~$20)
