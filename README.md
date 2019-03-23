@@ -510,58 +510,98 @@ It is important to note that qemu emulation is not perfect, but it is very usefu
 
 #### Setting up a Jenkins Build slave
 
-Jenkins build slaves work by being accessible via SSH and having some core programs installed we use for the build process here is an example of configuration on a Debian Server.
+Jenkins build slaves work by being accessible via SSH and having some core programs installed we use for the build process here are the steps to preparing a jenkins build slave:
 
-```
-apt-get update && apt-get install apt-transport-https ca-certificates curl gnupg2 software-properties-common jq git default-jre
-add-apt-repository    "deb [arch=amd64] https://download.docker.com/linux/$(. /etc/os-release; echo "$ID") \
-$(lsb_release -cs) \
-stable"
-apt-get update && apt-get install docker-ce -y
-```
+1. Create a user `jenkins` (does not need sudo access)
+2. Get the public ssh key from the team and put into `/home/jenkins/.ssh/autorized_keys` and set the permissions for the file and its parent folder
+3. Install dependencies (debian example, modify for your distro accordingly)
 
+    ```
+    apt-get update
+    apt-get install apt-transport-https \
+                    ca-certificates \
+                    curl \
+                    gnupg2 \
+                    software-properties-common \
+                    jq \
+                    git \
+                    default-jre
+    ```
 
-To allow multi-arch builds first you need to register the interpreters with Docker and it needs to be done every time the docker service is re/started. This can be accomplished by creating a new systemd service (ie. `/lib/systemd/system/multiarch.service`) with the following content
+4. Install docker (for x86_64 debian, modify for your arch and distro accordingly)
 
-```
-[Unit]
-Description=Multi-arch docker builds
-Requires=docker.service
-After=docker.service
+    ```
+    curl -fsSL https://download.docker.com/linux/debian/gpg | sudo apt-key add -
+    add-apt-repository    "deb [arch=amd64] https://download.docker.com/linux/$(. /etc/os-release; echo "$ID") \
+    $(lsb_release -cs) \
+    stable"
+    apt-get update && apt-get install docker-ce -y
+    ```
 
-[Service]
-Type=simple
-ExecStart=/usr/bin/docker run --rm --privileged multiarch/qemu-user-static:register --reset
+5. Add user `jenkins` to `docker` group via `usermod -aG docker jenkins`
+6. Login/su as `jenkins`. Since the build process commits to our repos we need to set a global username and email for GitHub:
 
-[Install]
-WantedBy=docker.service
-```
+    ```
+    git config --global user.email "ci@linuxserver.io"
+    git config --global user.name "LinuxServer-CI"
+    ```
 
-and enabling it via `sudo systemctl enable multiarch.service`. The command should now run every time the docker service is re/started.
+7. *[X86_64 only]* To allow multi-arch builds first you need to register the interpreters with Docker and it needs to be done every time the docker service is re/started. This can be accomplished by creating a new systemd service (ie. `/lib/systemd/system/multiarch.service`) with the following content and enabling it via `sudo systemctl enable multiarch.service`. The command should now run every time the docker service is re/started:
+
+    ```
+    [Unit]
+    Description=Multi-arch docker builds
+    Requires=docker.service
+    After=docker.service
+
+    [Service]
+    Type=simple
+    ExecStart=/usr/bin/docker run --rm --privileged multiarch/qemu-user-static:register --reset
+
+    [Install]
+    WantedBy=docker.service
+    ```
   
+8. *[X86_64 only]* Enable experimental CLI features:
 
-Then enable experimental CLI features:
+    ```
+    echo '{"experimental": "enabled"}' > /home/jenkins/.docker/config.json
 
-```
-echo '{"experimental": "enabled"}' > /home/<jenkinsuser>/.docker/config.json
+    ```
 
-```
 
-Since the build process commits to our repos we need to set a global username and email for GitHub:
 
-```
-git config --global user.email "ci@linuxserver.io"
-git config --global user.name "LinuxServer-CI"
-```
+#### Running from SSD on arm devices
 
-#### Migrating builds to pipeline
+Arm devices often fail during long builds due to SD cards and poor IO. On most arm devices you can move the bootfs to an external SSD connected via a USB-SATA adapter, which yields a much higher stability.  
 
-1. Create PR from the pipeline branch into master, check for successful PR build.
-2. Log into jenkins, go to `Docker-Builders/X86_64` and disable the main and PR build jobs.
-3. Merge PR branch into master, check for successful build and push to docker hub.
-4. Create deprecation PRs for the armhf and aarch64 repos similar to [here](https://github.com/linuxserver/docker-duckdns-armhf/pull/8/files), add deprecation notice and changelog entry to the readme and add the `90-config` file to echo deprecation notice to docker log.
-5. Once approved and merged, check for successful push of deprecation builds to docker hub.
-6. Log into jenkins, go to `Docker-Builders/armhf` and `Docker-Builders/arm64` and disable the main and PR build jobs.
-7. Create the package trigger and if necessary the external trigger on jenkins.
-8. Update the tracking document pinned to the #builds channel on discord.
-9. Have yourself a beer or a cookie.
+Hardware needed:
+1. 128GB SSD (~$20)
+2. USB-SATA adapter (either needs to be a powered one, or it needs to be plugged into a powered USB hub because most arm devices do not have enough power to supply an external drive) ($10-$20)
+
+Setup steps slightly differ based on hardware, but the gist is the same (originally followed the guide [here](https://wiki.odroid.com/odroid-xu4/software/building_webserver)). When completed, the bootloader will load from the SSD, then the OS will load from the SSD:
+
+1. Check your SSD with `sudo fdisk -l` and partition with `sudo fdisk /dev/sda` (replace `sda` with your drive's assignment)
+    * View the current partition table with `p`
+    * Create a new GPT table `g`
+    * Create new partition with `n` (if your device or adapter does not support TRIM, leave a significant portion as unallocated, so for a 128GB drive, you can create the partition with `+85G`)
+2. Format the new partition `sudo mkfs.ext4 /dev/sda1`
+3. Mount the drive
+    ```
+    sudo mkdir -p /media/systemdrive
+    sudo mount /dev/sda1 /media/systemdrive
+    ```
+4. Make sure it mounted properly `df -h`
+5. Note the UUID of the `sda1` partition via `sudo lsblk -f`
+6. This is the device specific part about figuring out how bootfs is mounted
+    * On an Odroid, bootfs mounting is done via files under `/boot/media`. Edit the file `boot.ini` to change the UUID in `setenv bootargs` line to the new partition on the SSD. Keep in mind that this file may be overwritten during an update. Therefore you'll also need to edit the file `boot.ini.default` to enable and set the `setenv bootargs` line with the SSD partition's UUID.
+    * On a Pine64 with Armbian, the rootfs is defined in `/boot/boot.cmd`. This file gets overwritten during an update, however there is a user configurable file at `/boot/armbianEnv.txt` that overrides the values in `boot.cmd`. So you only need to edit the UUID in `armbianEnv.txt`'s `rootdev` line to match the SSD partition's UUID.
+7. Make sure the SSD partition is mounted on boot
+    * Edit `/etc/fstab`
+    * Comment out the line that mounts the SD card partition to `/`
+    * Add `UUID=<your-SSD-UUID> / ext4 defaults,noatime 0 1` and save
+8. If it's an existing build slave, do `docker system prune -a -f --volumes` and stop the docker service `sudo systemctl stop docker containerd` (so we don't have to copy over unnecessary data)
+9. Install rsync `sudo apt install rsync`
+10. Copy the contents of the SD card to the SSD `sudo rsync -axv / /media/systemdrive`
+11. Reboot and make sure the SSD partition is used for `/` via `df -h` (you should see something like `/dev/sda1 84G 5.9G 74G 8% /`)
+12. Enable TRIM if your hw supports it.
