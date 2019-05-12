@@ -579,6 +579,8 @@ Hardware needed:
 1. 128GB SSD (~$20)
 2. USB-SATA adapter (either needs to be a powered one, or it needs to be plugged into a powered USB hub because most arm devices do not have enough power to supply an external drive) ($10-$20)
 
+**NOTE:** Armbian is highly recommended if available for your device, because it comes with a script that automatically installs the OS onto an external drive. Once everything is set up on the SD card (users, packages, etc.), create the SSD partition as described in step 1 below, then run `sudo armbian-config`, select `System`, select `Install on sata` and follow the steps. For other distributions, follow the directions below and modify accordingly.
+
 Setup steps slightly differ based on hardware, but the gist is the same (originally followed the guide [here](https://wiki.odroid.com/odroid-xu4/software/building_webserver)). When completed, the bootloader will load from the SSD, then the OS will load from the SSD:
 
 1. Check your SSD with `sudo fdisk -l` and partition with `sudo fdisk /dev/sda` (replace `sda` with your drive's assignment)
@@ -593,9 +595,8 @@ Setup steps slightly differ based on hardware, but the gist is the same (origina
     ```
 4. Make sure it mounted properly `df -h`
 5. Note the UUID of the `sda1` partition via `sudo lsblk -f`
-6. This is the device specific part about figuring out how bootfs is mounted
-    * On an Odroid, bootfs mounting is done via files under `/boot/media`. Edit the file `boot.ini` to change the UUID in `setenv bootargs` line to the new partition on the SSD. Keep in mind that this file may be overwritten during an update. Therefore you'll also need to edit the file `boot.ini.default` to enable and set the `setenv bootargs` line with the SSD partition's UUID.
-    * On a Pine64 with Armbian, the rootfs is defined in `/boot/boot.cmd`. This file gets overwritten during an update, however there is a user configurable file at `/boot/armbianEnv.txt` that overrides the values in `boot.cmd`. So you only need to edit the UUID in `armbianEnv.txt`'s `rootdev` line to match the SSD partition's UUID.
+6. This is the device/distribution specific part about figuring out how bootfs is mounted
+    * On an Odroid with debian, bootfs mounting is done via files under `/boot/media`. Edit the file `boot.ini` to change the UUID in `setenv bootargs` line to the new partition on the SSD. Keep in mind that this file may be overwritten during an update. Therefore you'll also need to edit the file `boot.ini.default` to enable and set the `setenv bootargs` line with the SSD partition's UUID.
 7. Make sure the SSD partition is mounted on boot
     * Edit `/etc/fstab`
     * Comment out the line that mounts the SD card partition to `/`
