@@ -109,6 +109,12 @@ function tell_discord_fail {
 
 # Trigger the build for this triggers job
 function trigger_build {
+# Fail on nulls or unset variables for comparison from external sources
+  if [ -z "${CURRENT_TAG}" ] && [ -z "${CURRENT_MD5}" ]; then
+    FAILURE_REASON='Unable to get version information from external source for '"${LS_REPO}"' '
+    tell_discord_fail
+    exit 0
+  fi
   curl -X POST \
       https://ci.linuxserver.io/job/Docker-Pipeline-Builders/job/${LS_REPO}/job/${LS_BRANCH}/buildWithParameters?PACKAGE_CHECK=false \
       --user ${JENKINS_USER}:${JENKINS_API_KEY}
