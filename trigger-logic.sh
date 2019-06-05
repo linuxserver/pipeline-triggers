@@ -86,6 +86,14 @@ case $i in
   FULL_CUSTOM="${i#*=}"
   shift
   ;;
+  -TWO_STAGE=*)
+  TWO_STAGE="${i#*=}"
+  shift
+  ;;
+  -SECOND_COMMAND=*)
+  SECOND_COMMAND="${i#*=}"
+  shift
+  ;;
 esac
 done
 
@@ -338,6 +346,39 @@ if [ "${TRIGGER_TYPE}" == "full_custom" ]; then
   # Detect failure in command
   if [ "$?" -ne 0 ]; then
     FAILURE_REASON='Unable to execute custom version command for '"${LS_REPO}"' make sure this command still works in Jenkins'
+    tell_discord_fail
+    exit 0
+  fi
+  # Sanitize the tag
+  CURRENT_TAG=$(echo ${CURRENT_TAG} | sed 's/[~,%@+;:/]//g')
+  # If the current tag does not match the external release then trigger a build
+  if [ "${CURRENT_TAG}" != "${EXTERNAL_TAG}" ]; then
+    echo "ext: ${EXTERNAL_TAG}"
+    echo "current: ${CURRENT_TAG}"
+    TRIGGER_REASON='A version change was detected for '"${LS_REPO}"' old version:'"${EXTERNAL_TAG}"' new version:'"${CURRENT_TAG}"
+    trigger_build
+  else
+    echo "Nothing to do release is up to date"
+  fi
+fi
+
+
+# This is a two stage trigger
+# The custom bash you pass to this trigger needs to have some kind of logic to exit badly if a remote resource is not available for both commands
+if [ "${TRIGGER_TYPE}" == "two_stage" ]; then
+  echo "This is a two stage trigger"
+  # Run first command
+  FIRST_STAGE_OUT=$(bash -c "${TWO_STAGE}")
+  # Detect failure in command
+  if [ "$?" -ne 0 ]; then
+    FAILURE_REASON='Unable to execute first stage command for '"${LS_REPO}"' make sure this command still works in Jenkins'
+    tell_discord_fail
+    exit 0
+  fi
+  COMMAND=$(echo "${SECOND_COMMAND}" | sed "s/FIRST_STAGE_OUT/${FIRST_STAGE_OUT}/g")
+  CURRENT_TAG=$(bash -c "${COMMAND}")
+  if [ "$?" -ne 0 ]; then
+    FAILURE_REASON='Bad return from second stage command for '"${LS_REPO}"' this is likely by design to prevent triggering until second stage returns OK'
     tell_discord_fail
     exit 0
   fi
