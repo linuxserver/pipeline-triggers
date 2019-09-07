@@ -5,14 +5,14 @@
 ## Current Build trigger types ##
 #################################
 # external_blob - An external file blob is downloaded and an md5 is generated to determine the external version
-# appveyor - A mostly custom curl command to get a redirect URL and parse it form appveyor
+# appveyor - A mostly custom curl command to get a redirect URL and parse it from appveyor
 # custom_jq - When you need to perform advanced jq operations for an external API response
 # deb_package - When you need to pull a version of a package from a debian style repo endpoint
 # full_custom - Raw bash exec of a command for corner cases and extreme versioning
 
-################
+#################
 # Set Variables #
-################
+#################
 
 # Set Parameters
 for i in "$@"
