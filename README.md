@@ -350,20 +350,22 @@ changelogs:
 
 These variables will be applied to the master template found here:
 
-https://github.com/linuxserver/doc-builder/blob/master/roles/generate-docs/templates/README.md.j2
+https://github.com/linuxserver/docker-jenkins-builder/blob/master/roles/generate-jenkins/templates/README.j2
 
 If this is the first time templating a README in a repo it is recommended to build it locally and commit the finished readme.
 
 Once you have the variables setup the way to like you can test the output by executing:
 
 ```
+docker pull linuxserver/jenkins-builder:latest && \
 docker run --rm \
  -v $(pwd):/tmp \
  -e LOCAL=true \
- linuxserver/doc-builder:latest
+ linuxserver/jenkins-builder:latest && \
+rm -f "$(basename $PWD).md"
 ```
 
-This will output GENERATED.md in your current working directory (should be the repo you are working on), this can be renamed to README.md and pushed with the commit or left out and a bot will commit the new README to master via the build slave.
+This will output all necessary templated files in your current working directory (should be the repo you are working on), including README.md and Jenkinsfile and can be pushed with the commit or left out and a bot will commit the new README to master via the build slave. It also saves the readme file for the docs repo named `<project-name>.md`, which gets deleted in the last part or the above command.
 
 ## Appendix
 
@@ -606,3 +608,10 @@ Setup steps slightly differ based on hardware, but the gist is the same (origina
 10. Copy the contents of the SD card to the SSD `sudo rsync -axv / /media/systemdrive`
 11. Reboot and make sure the SSD partition is used for `/` via `df -h` (you should see something like `/dev/sda1 84G 5.9G 74G 8% /`)
 12. Enable TRIM if your hw supports it.
+
+**NOTE:** Some arm64 (and maybe armhf) devices on recent kernels have issues uploading images to Docker Hub. It is recommended to add to (create if it doesn't exist) `/etc/docker/daemon.json` the following content:
+```
+{
+  "max-concurrent-uploads": 1
+}
+```
