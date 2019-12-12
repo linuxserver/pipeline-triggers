@@ -104,13 +104,13 @@ done
 
 # Send a message explaining the build trigger and reason to discord
 function tell_discord {
-  curl -X POST --data '{"avatar_url": "https://wiki.jenkins-ci.org/download/attachments/2916393/headshot.png","embeds": [{"color": 9802903,
+  curl -X POST -H "Content-Type: application/json" --data '{"avatar_url": "https://wiki.jenkins-ci.org/download/attachments/2916393/headshot.png","embeds": [{"color": 9802903,
                         "description": "**Build Triggered** \n**Reason:**: '"${TRIGGER_REASON}"' \n"}],
                         "username": "Jenkins"}' ${BUILDS_DISCORD}
 }
 
 function tell_discord_fail {
-  curl -X POST --data '{"avatar_url": "https://wiki.jenkins-ci.org/download/attachments/2916393/headshot.png","embeds": [{"color": 16711680,
+  curl -X POST -H "Content-Type: application/json" --data '{"avatar_url": "https://wiki.jenkins-ci.org/download/attachments/2916393/headshot.png","embeds": [{"color": 16711680,
                         "description": "**Trigger Failed** \n**Reason:**: '"${FAILURE_REASON}"' \n"}],
                         "username": "Jenkins"}' ${BUILDS_DISCORD}
 }
