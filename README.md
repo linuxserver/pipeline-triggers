@@ -483,31 +483,17 @@ Dockerfile.armhf
 Dockerfile.aarch64
 ```
 
-The arm variants of the image need to copy qemu binaries as a first step to allow us to run continuous integration in emulation on an X86 host:
+In order to build and run arm stuff on x86 locally you will need the following command: 
 
 ```
-FROM lsiobase/alpine.nginx.arm64:3.7
-# Add qemu to build on x86_64 systems
-COPY qemu-aarch64-static /usr/bin
+docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
 ```
+To build using the specific Dockerfiles: 
 
 ```
-FROM lsiobase/alpine.nginx.armhf:3.7
-# Add qemu to build on x86_64 systems
-COPY qemu-arm-static /usr/bin
-```
-
-These binaries will be downloaded and available during build time in Jenkins, but if you need to build locally you can run the following commands to allow building arm variants on x86 hardware:
-
-```
-docker run --rm --privileged multiarch/qemu-user-static:register --reset
-curl https://lsio-ci.ams3.digitaloceanspaces.com/qemu-arm-static -o qemu-arm-static
-curl https://lsio-ci.ams3.digitaloceanspaces.com/qemu-aarch64-static -o qemu-aarch64-static
-chmod +x qemu-*
 docker build -f Dockerfile.aarch64 -t testarm64 .
 docker build -f Dockerfile.armhf -t testarm .
 ```
-This will also allow you to run the arm variants on an x86 machine which can be useful for debugging.
 It is important to note that qemu emulation is not perfect, but it is very useful when you have no access to native arm hardware.
 
 #### Setting up a Jenkins Build slave
@@ -558,7 +544,7 @@ Jenkins build slaves work by being accessible via SSH and having some core progr
 
     [Service]
     Type=simple
-    ExecStart=/usr/bin/docker run --rm --privileged multiarch/qemu-user-static:register --reset
+    ExecStart=/usr/bin/docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
 
     [Install]
     WantedBy=docker.service
