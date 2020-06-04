@@ -94,6 +94,10 @@ case $i in
   SECOND_COMMAND="${i#*=}"
   shift
   ;;
+  -REPO_OVERRIDE=*)
+  REPO_OVERRIDE="${i#*=}"
+  shift
+  ;;
 esac
 done
 
@@ -122,6 +126,9 @@ function trigger_build {
     FAILURE_REASON='Unable to get version information from external source for '"${LS_REPO}"' '
     tell_discord_fail
     exit 0
+  fi
+  if [ -n "${REPO_OVERRIDE}" ]; then
+    LS_REPO=${REPO_OVERRIDE}
   fi
   curl -X POST \
       https://ci.linuxserver.io/job/Docker-Pipeline-Builders/job/${LS_REPO}/job/${LS_BRANCH}/buildWithParameters?PACKAGE_CHECK=false \
