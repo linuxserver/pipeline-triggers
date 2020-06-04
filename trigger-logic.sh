@@ -133,11 +133,13 @@ function trigger_build {
 function get_image_info {
 
   local repo=$(echo $LS_REPO | sed 's/docker-//g' )
-  local image="linuxserver/${repo}"
+  local image="${LS_USER}/${repo}"
   if [ "${LS_RELEASE_TYPE}" == "stable" ]; then
     local tag="latest"
   elif [ "${LS_RELEASE_TYPE}" == "prerelease" ]; then
     local tag="${LS_BRANCH}"
+  else
+    local tag="${LS_RELEASE_TYPE}"
   fi
   local token=$(get_token $image)
   local digest=$(get_digest $image $tag $token)
