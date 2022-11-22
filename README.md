@@ -533,8 +533,15 @@ Jenkins build slaves work by being accessible via SSH and having some core progr
     git config --global user.email "ci@linuxserver.io"
     git config --global user.name "LinuxServer-CI"
     ```
-
-7. *[X86_64 only]* To allow multi-arch builds first you need to register the interpreters with Docker and it needs to be done every time the docker service is re/started. This can be accomplished by creating a new systemd service (ie. `/lib/systemd/system/multiarch.service`) with the following content and enabling it via `sudo systemctl enable multiarch.service`. The command should now run every time the docker service is re/started:
+7. Enable buildkit by creating/appending `/etc/docker/daemon.json` with the following:
+    ```
+    {
+      "features": {
+        "buildkit" : true
+      }
+    }
+    ```
+8. *[X86_64 only]* To allow multi-arch builds first you need to register the interpreters with Docker and it needs to be done every time the docker service is re/started. This can be accomplished by creating a new systemd service (ie. `/lib/systemd/system/multiarch.service`) with the following content and enabling it via `sudo systemctl enable multiarch.service`. The command should now run every time the docker service is re/started:
 
     ```
     [Unit]
@@ -550,13 +557,12 @@ Jenkins build slaves work by being accessible via SSH and having some core progr
     WantedBy=docker.service
     ```
   
-8. *[X86_64 only]* Enable experimental CLI features (make sure the file is owned by the user `jenkins`):
+9. *[X86_64 only]* Enable experimental CLI features (make sure the file is owned by the user `jenkins`):
 
     ```
     echo '{"experimental": "enabled"}' > /home/jenkins/.docker/config.json
 
     ```
-
 
 
 #### Running from SSD on arm devices
