@@ -533,7 +533,8 @@ services:
       - 2223:2222
     restart: unless-stopped
 ```
-3. *[X86_64 only]* To allow multi-arch builds first you need to register the interpreters with Docker and it needs to be done every time the docker service is re/started. This can be accomplished by creating a new systemd service (ie. `/lib/systemd/system/multiarch.service`) with the following content and enabling it via `sudo systemctl enable multiarch.service`. The command should now run every time the docker service is re/started:
+3. In Jenkins, add each new build agent container as a single executor builder. Set the remote root directory to `/config/jenkins` and don't forget to set the unique port, which is hidden under the advanced button.
+4. *[X86_64 only]* To allow multi-arch builds first you need to register the interpreters with Docker and it needs to be done every time the docker service is re/started. This can be accomplished by creating a new systemd service (ie. `/lib/systemd/system/multiarch.service`) with the following content and enabling it via `sudo systemctl enable multiarch.service`. The command should now run every time the docker service is re/started:
 
     ```
     [Unit]
