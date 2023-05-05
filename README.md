@@ -24,7 +24,7 @@
           + [Use an PIP version tag to install a specific version](#use-an-pip-version-tag-to-install-a-specific-version)
           + [Set an ENV argument for post build installation](#set-an-env-argument-for-post-build-installation)
       - [Multi Arch and cross-building](#multi-arch-and-cross-building)
-      - [Setting up a Jenkins Build slave](#setting-up-a-jenkins-build-slave)
+      - [Setting up a Jenkins Build Agent](#setting-up-a-jenkins-build-agent)
       - [Running from SSD on arm devices](#running-from-ssd-on-arm-devices)
 
 ## Intro
@@ -47,7 +47,7 @@ The purpose of this document is to be an evolving written explanation of the cur
 
 ## The basics
 
-Given the general theme of LinuxServer we operate our own build servers and slaves using Jenkins. All of our repositories are hosted on github https://github.com/linuxserver .
+Given the general theme of LinuxServer we operate our own build servers and agents using Jenkins. All of our repositories are hosted on github https://github.com/linuxserver .
 
 The build system in general looks something like this:
 
@@ -365,7 +365,7 @@ docker run --rm \
 rm -f "$(basename $PWD).md"
 ```
 
-This will output all necessary templated files in your current working directory (should be the repo you are working on), including README.md and Jenkinsfile and can be pushed with the commit or left out and a bot will commit the new README to master via the build slave. It also saves the readme file for the docs repo named `<project-name>.md`, which gets deleted in the last part or the above command.
+This will output all necessary templated files in your current working directory (should be the repo you are working on), including README.md and Jenkinsfile and can be pushed with the commit or left out and a bot will commit the new README to master via the build agent. It also saves the readme file for the docs repo named `<project-name>.md`, which gets deleted in the last part or the above command.
 
 ## Appendix
 
@@ -496,52 +496,45 @@ docker build -f Dockerfile.armhf -t testarm .
 ```
 It is important to note that qemu emulation is not perfect, but it is very useful when you have no access to native arm hardware.
 
-#### Setting up a Jenkins Build slave
+#### Setting up a Jenkins Build Agent
 
-Jenkins build slaves work by being accessible via SSH and having some core programs installed we use for the build process here are the steps to preparing a jenkins build slave:
+Jenkins build agents work by being accessible via SSH and having some core programs installed we use for the build process here are the steps to preparing a jenkins build agent:
 
-1. Create a user `jenkins` (does not need sudo access)
-2. Get the public ssh key from the team and put into `/home/jenkins/.ssh/authorized_keys` and set the permissions for the file and its parent folder
-3. Install dependencies (debian example, modify for your distro accordingly)
-
-    ```
-    apt-get update
-    apt-get install apt-transport-https \
-                    ca-certificates \
-                    curl \
-                    gnupg2 \
-                    software-properties-common \
-                    jq \
-                    git \
-                    default-jre
-    ```
-
-4. Install docker (for debian, modify for your distro accordingly)
-
-    ```
-    curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-    echo \
-    "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian \
-    $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-    apt-get update && apt-get install docker-ce -y
-    ```
-
-5. Add user `jenkins` to `docker` group via `usermod -aG docker jenkins`
-6. Login/su as `jenkins`. Since the build process commits to our repos we need to set a global username and email for GitHub:
-
-    ```
-    git config --global user.email "ci@linuxserver.io"
-    git config --global user.name "LinuxServer-CI"
-    ```
-7. Enable buildkit by creating/appending `/etc/docker/daemon.json` with the following:
-    ```
-    {
-      "features": {
-        "buildkit" : true
-      }
-    }
-    ```
-8. *[X86_64 only]* To allow multi-arch builds first you need to register the interpreters with Docker and it needs to be done every time the docker service is re/started. This can be accomplished by creating a new systemd service (ie. `/lib/systemd/system/multiarch.service`) with the following content and enabling it via `sudo systemctl enable multiarch.service`. The command should now run every time the docker service is re/started:
+1. Install docker via the convenience script
+```
+curl -fsSL https://get.docker.com -o get-docker.sh
+sh get-docker.sh
+```
+2. Create a separate build agent container for each executor (customize the paths and the ports)
+```
+services:
+  build-agent-a:
+    image: lscr.io/linuxserver/build-agent:latest
+    privileged: true
+    container_name: build-agent-a
+    environment:
+      - TZ=Etc/UTC
+      - 'PUBLIC_KEY=<insert public key here>'
+    volumes:
+      - /docker-data/build-agent-a:/config
+    ports:
+      - 2222:2222
+    restart: unless-stopped
+  build-agent-b:
+    image: lscr.io/linuxserver/build-agent:latest
+    privileged: true
+    container_name: build-agent-b
+    environment:
+      - TZ=Etc/UTC
+      - 'PUBLIC_KEY=<insert public key here>'
+    volumes:
+      - /docker-data/build-agent-b:/config
+    ports:
+      - 2223:2222
+    restart: unless-stopped
+```
+3. In Jenkins, add each new build agent container as a single executor builder. Set the remote root directory to `/config/jenkins` and don't forget to set the unique port, which is hidden under the advanced button.
+4. *[X86_64 only]* To allow multi-arch builds first you need to register the interpreters with Docker and it needs to be done every time the docker host is re/started. This can be accomplished by creating a new systemd service (ie. `/lib/systemd/system/multiarch.service`) with the following content and enabling it via `sudo systemctl enable multiarch.service`. The command should now run every time the docker host is re/started:
 
     ```
     [Unit]
@@ -554,14 +547,7 @@ Jenkins build slaves work by being accessible via SSH and having some core progr
     ExecStart=/usr/bin/docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
 
     [Install]
-    WantedBy=docker.service
-    ```
-  
-9. *[X86_64 only]* Enable experimental CLI features (make sure the file is owned by the user `jenkins`):
-
-    ```
-    echo '{"experimental": "enabled"}' > /home/jenkins/.docker/config.json
-
+    WantedBy=multi-user.target
     ```
 
 
@@ -573,37 +559,6 @@ Hardware needed:
 1. 128GB SSD (~$20)
 2. USB-SATA adapter (either needs to be a powered one, or it needs to be plugged into a powered USB hub because most arm devices do not have enough power to supply an external drive) ($10-$20)
 
-**NOTE:** Armbian is highly recommended if available for your device, because it comes with a script that automatically installs the OS onto an external drive. Once everything is set up on the SD card (users, packages, etc.), create the SSD partition as described in step 1 below, then run `sudo armbian-config`, select `System`, select `Install on sata` and follow the steps. For other distributions, follow the directions below and modify accordingly.
+Raspberry Pi now support booting from USB with an updated bootloader. If your bootloader needs to be updated, you can use Raspberry Pi Imager to flash the bootloader updater to an SD card and update the bootloader that way.
 
-Setup steps slightly differ based on hardware, but the gist is the same (originally followed the guide [here](https://wiki.odroid.com/odroid-xu4/software/building_webserver)). When completed, the bootloader will load from the SSD, then the OS will load from the SSD:
-
-1. Check your SSD with `sudo fdisk -l` and partition with `sudo fdisk /dev/sda` (replace `sda` with your drive's assignment)
-    * View the current partition table with `p`
-    * Create a new GPT table `g`
-    * Create new partition with `n` (if your device or adapter does not support TRIM, leave a significant portion as unallocated, so for a 128GB drive, you can create the partition with `+85G`)
-2. Format the new partition `sudo mkfs.ext4 /dev/sda1`
-3. Mount the drive
-    ```
-    sudo mkdir -p /media/systemdrive
-    sudo mount /dev/sda1 /media/systemdrive
-    ```
-4. Make sure it mounted properly `df -h`
-5. Note the UUID of the `sda1` partition via `sudo lsblk -f`
-6. This is the device/distribution specific part about figuring out how bootfs is mounted
-    * On an Odroid with debian, bootfs mounting is done via files under `/boot/media`. Edit the file `boot.ini` to change the UUID in `setenv bootargs` line to the new partition on the SSD. Keep in mind that this file may be overwritten during an update. Therefore you'll also need to edit the file `boot.ini.default` to enable and set the `setenv bootargs` line with the SSD partition's UUID.
-7. Make sure the SSD partition is mounted on boot
-    * Edit `/etc/fstab`
-    * Comment out the line that mounts the SD card partition to `/`
-    * Add `UUID=<your-SSD-UUID> / ext4 defaults,noatime 0 1` and save
-8. If it's an existing build slave, do `docker system prune -a -f --volumes` and stop the docker service `sudo systemctl stop docker containerd` (so we don't have to copy over unnecessary data)
-9. Install rsync `sudo apt install rsync`
-10. Copy the contents of the SD card to the SSD `sudo rsync -axv / /media/systemdrive`
-11. Reboot and make sure the SSD partition is used for `/` via `df -h` (you should see something like `/dev/sda1 84G 5.9G 74G 8% /`)
-12. Enable TRIM if your hw supports it.
-
-**NOTE:** Some arm64 (and maybe armhf) devices on recent kernels have issues uploading images to Docker Hub. It is recommended to add to (create if it doesn't exist) `/etc/docker/daemon.json` the following content:
-```
-{
-  "max-concurrent-uploads": 1
-}
-```
+You can use Raspberry Pi Imager to flash Ubuntu Server directly onto the SSD via a USB-SATA adapter. As long as the bootloader is updated, the Rpi should now be able to boot directly from the USB-SATA without an SD card inserted.
