@@ -1,53 +1,53 @@
 # LinuxServer.io Build Environment
 
 - [LinuxServer.io Build Environment](#linuxserverio-build-environment)
-  * [Intro](#intro)
-  * [The basics](#the-basics)
-  * [Triggering a build](#triggering-a-build)
-      - [LinuxServer Github Commits](#linuxserver-github-commits)
-      - [External OS Package Change](#external-os-package--change)
-      - [External Software Change](#external-software-change)
-          + [Triggering based on changes in external JSON](#triggering-based-on-changes-in-external-json)
-          + [Triggering based on custom external releases](#triggering-based-on-custom-external-releases)
-  * [The JenkinsFile](#the-jenkinsfile)
-      - [Build Types](#build-types)
-      - [Templating](#templating)
-          + [jenkins-vars](#jenkins-vars)
-      - [Header Variables](#header-variables)
-  * [Automating README updates](#automating-readme-updates)
-  * [Appendix](#appendix)
-      - [Repo Logic examples](#repo-logic-examples)
-          + [Use a git release tag to download the source code and extract it](#use-a-git-release-tag-to-download-the-source-code-and-extract-it)
-          + [Use a git release tag to download the source code and extract it when the package needed is not base source code](#use-a-git-release-tag-to-download-the-source-code-and-extract-it-when-the-package-needed-is-not-base-source-code)
-          + [Use a git commit tag to download the source code and extract it](#use-a-git-commit-tag-to-download-the-source-code-and-extract-it)
-          + [Use an NPM version tag to install a specific version](#use-an-npm-version-tag-to-install-a-specific-version)
-          + [Use an PIP version tag to install a specific version](#use-an-pip-version-tag-to-install-a-specific-version)
-          + [Set an ENV argument for post build installation](#set-an-env-argument-for-post-build-installation)
-      - [Multi Arch and cross-building](#multi-arch-and-cross-building)
-      - [Setting up a Jenkins Build Agent](#setting-up-a-jenkins-build-agent)
-      - [Running from SSD on arm devices](#running-from-ssd-on-arm-devices)
+  - [Intro](#intro)
+  - [The basics](#the-basics)
+  - [Triggering a build](#triggering-a-build)
+    - [LinuxServer Github Commits](#linuxserver-github-commits)
+    - [External OS Package Change](#external-os-package-change)
+    - [External Software Change](#external-software-change)
+      - [Triggering based on changes in external JSON](#triggering-based-on-changes-in-external-json)
+      - [Triggering based on custom external releases](#triggering-based-on-custom-external-releases)
+  - [The JenkinsFile](#the-jenkinsfile)
+    - [Build Types](#build-types)
+    - [Templating](#templating)
+      - [jenkins-vars](#jenkins-vars)
+    - [Repo Variables](#repo-variables)
+  - [Automating README updates](#automating-readme-updates)
+  - [Appendix](#appendix)
+    - [Repo Logic examples](#repo-logic-examples)
+      - [Use a git release tag to download the source code and extract it](#use-a-git-release-tag-to-download-the-source-code-and-extract-it)
+      - [Use a git release tag to download the source code and extract it when the package needed is not base source code](#use-a-git-release-tag-to-download-the-source-code-and-extract-it-when-the-package-needed-is-not-base-source-code)
+      - [Use a git commit tag to download the source code and extract it](#use-a-git-commit-tag-to-download-the-source-code-and-extract-it)
+      - [Use an NPM version tag to install a specific version](#use-an-npm-version-tag-to-install-a-specific-version)
+      - [Use an PIP version tag to install a specific version](#use-an-pip-version-tag-to-install-a-specific-version)
+      - [Set an ENV argument for post build installation](#set-an-env-argument-for-post-build-installation)
+    - [Multi Arch and cross-building](#multi-arch-and-cross-building)
+    - [Setting up a Jenkins Build Agent](#setting-up-a-jenkins-build-agent)
+    - [Running from SSD on arm devices](#running-from-ssd-on-arm-devices)
 
 ## Intro
 
 The purpose of this document is to be an evolving written explanation of the current state of the build system surrounding the LinuxServer.io Docker containers. It revolves around some core concepts:
 
-- All containers should be built as soon as an external package release, internal code change, or system level package is changed. This will allow the team to deal with issues as they arrise instead of in bulk with timed operations.
+- All containers should be built as soon as an external package release, internal code change, or system level package is changed. This will allow the team to deal with issues as they arise instead of in bulk with timed operations.
 
 - The code used should be as self documenting as possible and should avoid using externally linked libraries where possible. Preferably in a beginner level scripting language like BASH or Python.
 
- - All build logic should be contained within the source repository that is being built against.
+- All build logic should be contained within the source repository that is being built against.
 
- - Build logic should be as self contained as possible as to not lock into a specific build system. A triggered build should be able to determine the most current version of all component software being used to build the current image.
+- Build logic should be as self contained as possible as to not lock into a specific build system. A triggered build should be able to determine the most current version of all component software being used to build the current image.
 
- - Notifications should be sent to the most active community platform for the team, and include as much information as possible to allow any member of the team to quickly troubleshoot and resolve.
+- Notifications should be sent to the most active community platform for the team, and include as much information as possible to allow any member of the team to quickly troubleshoot and resolve.
 
- - The build process should be transparent to the end users participating in the community effort and they should recieve feedback on any pull requests or branched commits.
+- The build process should be transparent to the end users participating in the community effort and they should receive feedback on any pull requests or branched commits.
 
- - The build logic should stay generalized where possible to be easily and quickly templated to new projects.
+- The build logic should stay generalized where possible to be easily and quickly templated to new projects.
 
 ## The basics
 
-Given the general theme of LinuxServer we operate our own build servers and agents using Jenkins. All of our repositories are hosted on github https://github.com/linuxserver .
+Given the general theme of LinuxServer we operate our own build servers and agents using Jenkins. All of our repositories are hosted on github [https://github.com/linuxserver](https://github.com/linuxserver).
 
 The build system in general looks something like this:
 
@@ -67,21 +67,21 @@ When any of these triggers fire, the job for the given repo will be triggered on
 
 The logic for all of the custom triggers can be found in this repository:
 
-https://github.com/linuxserver/pipeline-triggers/blob/master/trigger-logic.sh
+[https://github.com/linuxserver/pipeline-triggers/blob/master/trigger-logic.sh](https://github.com/linuxserver/pipeline-triggers/blob/master/trigger-logic.sh)
 
 This is pulled and passed parameters on a timer based on the custom configuration for your trigger job.
 
 The vast majority of repositories do not use these custom triggers, we simply use a polling plugin that reaches out to api endpoints and checks for changes in specific JSON objects (IE github releases or commits api).
 
-#### LinuxServer Github Commits
+### LinuxServer Github Commits
 
-This is the most baked in methodology of triggering a build for a Jenkins Pipeline. It is a two step process to configure the repository with a JenkinsFile and add it to Jenkins at https://ci.linuxserver.io/blue/organizations/jenkins/create-pipeline . ( In this example for a development user for docker-freshrss )
+This is the most baked in methodology of triggering a build for a Jenkins Pipeline. It is a two step process to configure the repository with a JenkinsFile and add it to Jenkins at [https://ci.linuxserver.io/blue/organizations/jenkins/create-pipeline](https://ci.linuxserver.io/blue/organizations/jenkins/create-pipeline). ( In this example for a development user for docker-freshrss )
 
 ![ ](https://s3-us-west-2.amazonaws.com/linuxserver-docs/images/addpipeline.png  "Addpipeline")
 
 With the Pipeline in place you will also need to configure the repository with a webhook to push events in JSON format to the following endpoint:
 
-https://ci.linuxserver.io/github-webhook/
+[https://ci.linuxserver.io/github-webhook/](https://ci.linuxserver.io/github-webhook/)
 
 Below is the configuration:
 
@@ -91,7 +91,7 @@ This should happen automatically, but some users do not have these privileges, s
 
 With these setup and the Jenkinsfile for the project in repo the project will be built on all commits.
 
-We break up the endpoints for a dockerhub push based on the type of commit:
+We break up the endpoints for a Docker Hub push based on the type of commit:
 
 - [linuxserver](https://hub.docker.com/u/linuxserver/) - All commits to the master branch will push to our live endpoint
 - [lsiodev](https://hub.docker.com/u/lsiodev/) - All commits to non master branches will push to this endpoint
@@ -103,13 +103,13 @@ The Jenkinsfile contains logic to automatically maintain a list of all of the in
 
 If any of the packages are updated in our docker images we want to rebuild and push a fresh build. In order to achieve this we trigger the existing jobs to build once a week with a special parameter passed to the build job:
 
-```
+```bash
 PACKAGE_CHECK=true
 ```
 
 An example of the weekly package check trigger can be found here:
 
-https://ci.linuxserver.io/job/External-Triggers/job/snipe-it-package-trigger/configure
+[https://ci.linuxserver.io/job/External-Triggers/job/snipe-it-package-trigger/configure](https://ci.linuxserver.io/job/External-Triggers/job/snipe-it-package-trigger/configure)
 
 When creating a new trigger simply copy this job and swap in the endpoints you need to build.
 
@@ -117,11 +117,11 @@ When creating a new trigger simply copy this job and swap in the endpoints you n
 
 In this document we will be covering two different external software change jobs. One uses the logic in the trigger-logic script for custom jobs, the other uses an http URL checker plugin for Jenkins.
 
-###### Triggering based on changes in external JSON
+##### Triggering based on changes in external JSON
 
 The most common use for a job like this would be to reference the current version displayed on the Github API endpoint. An example of this type of job can be seen at:
 
-https://ci.linuxserver.io/job/External-Triggers/job/snipe-it-external-trigger/configure
+[https://ci.linuxserver.io/job/External-Triggers/job/snipe-it-external-trigger/configure](https://ci.linuxserver.io/job/External-Triggers/job/snipe-it-external-trigger/configure)
 
 ![ ](https://s3-us-west-2.amazonaws.com/linuxserver-docs/images/httptrigger.png  "HTTPTrigger")
 
@@ -133,11 +133,11 @@ Some projects either do not live on GitHub or their release process requires us 
 
 In this example we will be checking an external Debian style repo for a change to mariadb:
 
-https://ci.linuxserver.io/job/External-Triggers/job/mariadb-external-trigger/
+[https://ci.linuxserver.io/job/External-Triggers/job/mariadb-external-trigger/](https://ci.linuxserver.io/job/External-Triggers/job/mariadb-external-trigger/)
 
 Here we are passing debian repo URL and the package name we want to parse out to this logic:
 
-```
+```bash
 # This is a Deb Package trigger
 if [ "${TRIGGER_TYPE}" == "deb_package" ]; then
   echo "This is a deb package trigger"
@@ -181,7 +181,7 @@ fi
 
 The Specific bash logic is as follows for calling the trigger script:
 
-```
+```bash
 ./trigger-logic.sh \
 -TRIGGER_TYPE="deb_package" \
 -LS_USER="linuxserver" \
@@ -195,7 +195,7 @@ The Specific bash logic is as follows for calling the trigger script:
 -JENKINS_API_KEY=${JENKINS_API_KEY}
 ```
 
-If the Tag does not match we will trigger a build on the master branch of docker-mariadb. 
+If the Tag does not match we will trigger a build on the master branch of docker-mariadb.
 
 ## The JenkinsFile
 
@@ -203,9 +203,9 @@ At the core of a the build process is a git stored build configuration that is u
 
 Templates for the different external release types can be found here:
 
-https://github.com/linuxserver/pipeline-triggers/blob/master/Jenkinsfiles/
+[https://github.com/linuxserver/pipeline-triggers/blob/master/Jenkinsfiles/](https://github.com/linuxserver/pipeline-triggers/blob/master/Jenkinsfiles/)
 
-#### Build Types
+### Build Types
 
 This file uses a series of parameters in the header to determine what type of build this will be to dictate the logic used to determine versions of the software to include in the container tagging process. A complete list of the types can be seen below:
 
@@ -216,7 +216,7 @@ This file uses a series of parameters in the header to determine what type of bu
 - alpine_repo- An Alpine repo along with a  list of packages used from that repo are used to run a docker container at the version of alpine requested to generate an md5sum of the output for release tagging.
 - github_commit- The GitHub commits api endpoint is polled to get the latest commit sha at the branch requested to generate a release tag.
 - npm_version- The NPM api is polled to get the version number to generate a release tag.
-- pip_version- The pyPIP api is polled to get the latest verison number to generate a release tag.
+- pip_version- The pyPIP api is polled to get the latest version number to generate a release tag.
 - external_blob- A custom http/https endpoint is defined and the file at that endpoint is downloaded to generate an md5sum for the release tag.
 - custom_json- When you have a custom JSON endpoint to read versions from this will allow you to manually set a path in the JQ language format.
 
@@ -228,22 +228,22 @@ In order to maintain the build logic across all of our repos we leverage a helpe
 
 When initially creating a project or converting from older build logic two files will need to be included in the repo:
 
- - Jenkinsfile- This is the main build logic, but at a minimum it only needs to contain the logic to template from the jenkins variables passed to it. Examples of minimal files are included in this repository under the Jenkinsfiles folder.
- - jenkins-vars.yml- Contains all of the custom variables for this project needed by the build logic.
+- Jenkinsfile- This is the main build logic, but at a minimum it only needs to contain the logic to template from the jenkins variables passed to it. Examples of minimal files are included in this repository under the Jenkinsfiles folder.
+- jenkins-vars.yml- Contains all of the custom variables for this project needed by the build logic.
 
 In order to participate in the development of the build logic that waterfalls to all of the pipeline repos, please see:
 
-https://github.com/linuxserver/docker-jenkins-builder
+[https://github.com/linuxserver/docker-jenkins-builder](https://github.com/linuxserver/docker-jenkins-builder)
 
 ##### jenkins-vars
 
 This file will contain all of the needed variables covered in the Repo Variables section covered below and will have its own header for logic wrapping:
 
- - project_name- Full name of repository.
- - external_type- This will be one of the Build types above IE github_stable .
- - release_type- This determines if it is a stable or prerelease in github, this can be useful for branched projects where you want to build a development or nightly build in the case of prerelease.
- - release_tag- Determines the finished meta tag for the dockerhub endpoint, for all master branch builds this will be latest, for development branches this can vary IE nightly or development
- - ls_branch- The branch you are currently building on, this is hardcoded into the variables file to avoid any mistakes. It will be used to keep metadata files and template files up to date in that branch. If you are working on a temporary branch you **DO NOT** need to switch this around as you do not want the resulting builds to update anything in your temp branch. Again, only use this for permanent development branches for building nightly or dev version of the software.
+- project_name- Full name of repository.
+- external_type- This will be one of the Build types above IE github_stable .
+- release_type- This determines if it is a stable or pre-release in github, this can be useful for branched projects where you want to build a development or nightly build in the case of pre-release.
+- release_tag- Determines the finished meta tag for the Docker Hub endpoint, for all master branch builds this will be latest, for development branches this can vary IE nightly or development
+- ls_branch- The branch you are currently building on, this is hardcoded into the variables file to avoid any mistakes. It will be used to keep metadata files and template files up to date in that branch. If you are working on a temporary branch you **DO NOT** need to switch this around as you do not want the resulting builds to update anything in your temp branch. Again, only use this for permanent development branches for building nightly or dev version of the software.
 
 #### Repo Variables
 
@@ -274,23 +274,23 @@ A brief explanation of all of the variables used:
 - DIST_REPO_PACKAGES-  If special repos are used for your image this contains the external release that will be a list of packages to check versions to generate a tag.
 - JSON_URL- When using a custom JSON endpoint this is the URL of the endpoint
 - JSON_PATH- This is the path to the item you want to watch for changes and use for the version code on the build IE '.linux.x86_64.version'
-- MULTIARCH- if this will be built against the 3 architectures amd64, armhf, and arm64 (true/false)
+- MULTIARCH- if this will be built against the 2 architectures amd64 and arm64 (true/false)
 - CI- true/false to enable continuous integration
 - CI_WEB- true/false to enable screen shotting the web application for the CI process
 - CI_PORT- The port the application you are building listens on a web interface internally
 - CI_SSL- true/false to use an https endpoint to capture a screenshot of the endpoint
 - CI_DELAY- amount of time in seconds to wait after the container spins up to grab a screenshot
-- CI_DOCKERENV- single env variable or multiple seperated by '|' IE 'APP_URL=blah.com|DB_CONNECTION=sqlite_testing'
+- CI_DOCKERENV- single env variable or multiple separated by '|' IE 'APP_URL=blah.com|DB_CONNECTION=sqlite_testing'
 - CI_AUTH- if the web application requires basic authentication format user:password
 - CI_WEBPATH- custom path to use when capturing a screenshot of the web application
 
 ## Automating README updates
 
-Another pain point we have as an organization is managing over 100 READMEs across Github and Dockerhub. The build process uses helper containers in conjunction with an in repo yaml file to template the README from a master template and push the updates to both Github and Dockerhub.
+Another pain point we have as an organization is managing over 100 READMEs across Github and Docker Hub. The build process uses helper containers in conjunction with an in repo yaml file to template the README from a master template and push the updates to both Github and Docker Hub.
 
 This means the repo will need a "readme-vars.yml file in the root of the repo, an example can be seen below:
 
-```
+```yaml
 ---
 
 # project information
@@ -350,18 +350,18 @@ changelogs:
 
 These variables will be applied to the master template found here:
 
-https://github.com/linuxserver/docker-jenkins-builder/blob/master/roles/generate-jenkins/templates/README.j2
+[https://github.com/linuxserver/docker-jenkins-builder/blob/master/roles/generate-jenkins/templates/README.j2](https://github.com/linuxserver/docker-jenkins-builder/blob/master/roles/generate-jenkins/templates/README.j2)
 
 If this is the first time templating a README in a repo it is recommended to build it locally and commit the finished readme.
 
 Once you have the variables setup the way to like you can test the output by executing:
 
-```
+```sh
 docker pull linuxserver/jenkins-builder:latest && \
 docker run --rm \
- -v $(pwd):/tmp \
- -e LOCAL=true \
- linuxserver/jenkins-builder:latest && \
+  -v $(pwd):/tmp \
+  -e LOCAL=true \
+  linuxserver/jenkins-builder:latest && \
 rm -f "$(basename $PWD).md"
 ```
 
@@ -369,13 +369,13 @@ This will output all necessary templated files in your current working directory
 
 ## Appendix
 
-#### Repo Logic examples
+### Repo Logic examples
 
 This logic applies to the stuff outside of the Jenkins Workflow in the general Dockerfile and startup scripts for the container. These examples can be used to parse the external release tags into a working container.
 
-###### Use a git release tag to download the source code and extract it
+#### Use a git release tag to download the source code and extract it
 
-```
+```sh
   echo "**** install app ****" && \
   mkdir -p \
     /app/hydra && \
@@ -384,69 +384,67 @@ This logic applies to the stuff outside of the Jenkins Workflow in the general D
     "https://github.com/theotherp/nzbhydra/archive/${HYDRA_RELEASE}.tar.gz" && \
   tar xf /tmp/hydra.tar.gz -C \
     /app/hydra --strip-components=1
-
 ```
 
 Where HYDRA_RELEASE is the release tag passed by Docker build args.
 
-###### Use a git release tag to download the source code and extract it when the package needed is not base source code
+##### Use a git release tag to download the source code and extract it when the package needed is not base source code
 
 Some projects publish multiple versions of pre-built releases and you will need to use tags to determine which one to grab.
 
-```
- echo "**** install ombi ****" && \
- mkdir -p \
-        /opt/ombi && \
- ombi_url=$(curl -s https://api.github.com/repos/tidusjar/Ombi/releases/tags/"${OMBI_RELEASE}" |jq -r '.assets[].browser_download_url' |grep linux |grep -v arm) && \
- curl -o \
- /tmp/ombi-src.tar.gz -L \
-        "${ombi_url}" && \
- tar xzf /tmp/ombi-src.tar.gz -C /opt/ombi/ && \
- chmod +x /opt/ombi/Ombi && \
-
+```sh
+  echo "**** install ombi ****" && \
+  mkdir -p \
+    /opt/ombi && \
+  ombi_url=$(curl -s https://api.github.com/repos/tidusjar/Ombi/releases/tags/"${OMBI_RELEASE}" |jq -r '.assets[].browser_download_url' |grep linux |grep -v arm) && \
+  curl -o \
+  /tmp/ombi-src.tar.gz -L \
+    "${ombi_url}" && \
+  tar xzf /tmp/ombi-src.tar.gz -C /opt/ombi/ && \
+  chmod +x /opt/ombi/Ombi && \
 ```
 
 Here we are using a grep command to pull out only the download URL that contains "linux"
 
 ###### Use a git commit tag to download the source code and extract it
 
-```
- echo "**** install app ****" && \
- mkdir -p \
-   /app/mylar && \
- curl -o \
- /tmp/mylar.tar.gz -L \
-        "https://github.com/evilhero/mylar/archive/${MYLAR_COMMIT}.tar.gz" && \
- tar xf \
- /tmp/mylar.tar.gz -C \
-        /app/mylar --strip-components=1 && \
-
+```sh
+  echo "**** install app ****" && \
+  mkdir -p \
+    /app/mylar && \
+  curl -o \
+  /tmp/mylar.tar.gz -L \
+    "https://github.com/evilhero/mylar/archive/${MYLAR_COMMIT}.tar.gz" && \
+  tar xf \
+  /tmp/mylar.tar.gz -C \
+    /app/mylar --strip-components=1 && \
 ```
 
 ###### Use an NPM version tag to install a specific version
 
-```
- echo "**** install shout-irc ****" && \
- mkdir -p \
-	/app && \
- cd /app && \
- npm install \
-	thelounge@${THELOUNGE_VERSION} && \
+```sh
+  echo "**** install shout-irc ****" && \
+  mkdir -p \
+    /app && \
+  cd /app && \
+  npm install \
+  thelounge@${THELOUNGE_VERSION} && \
 ```
 
 ###### Use an PIP version tag to install a specific version
-```
- echo "**** install pip packages ****" && \
- pip install --no-cache-dir -U \
-	beautifulsoup4 \
-	beets==${BEETS_VERSION} \
-	beets-copyartifacts \
-	flask \
-	pillow \
-	pip \
-	pyacoustid \
-	pylast \
-	unidecode && \
+
+```sh
+  echo "**** install pip packages ****" && \
+  pip install --no-cache-dir -U \
+    beautifulsoup4 \
+    beets==${BEETS_VERSION} \
+    beets-copyartifacts \
+    flask \
+    pillow \
+    pip \
+    pyacoustid \
+    pylast \
+    unidecode && \
 ```
 
 ###### Set an ENV argument for post build installation
@@ -455,17 +453,17 @@ This can be useful if the software is installed when the container is first star
 
 In the DockerFile:
 
-```
+```bash
 ARG MUXIMUX_RELEASE
 ENV MUXIMUX_RELEASE=${MUXIMUX_RELEASE}
 ```
 
 In the Startup Logic:
 
-```
+```bash
 # fetch site
 if [ ! -d /config/www/muximux ]; then
-	echo "First Run downloading MuxiMux at ${MUXIMUX_RELEASE}"
+  echo "First Run downloading MuxiMux at ${MUXIMUX_RELEASE}"
   mkdir -p /config/www/muximux
   curl -o /tmp/muximux.tar.gz -L "https://github.com/mescon/Muximux/archive/${MUXIMUX_RELEASE}.tar.gz"
   tar xf /tmp/muximux.tar.gz -C /config/www/muximux --strip-components=1
@@ -477,66 +475,65 @@ fi
 
 When building applications some projects require building and pushing arm, and arm64 variants. To achieve this you must set the flag "MULTIARCH" to true in the Jenkinsfile and have a specific file structure in the repository.
 
-```
+```text
 Dockerfile
-Dockerfile.armhf
 Dockerfile.aarch64
 ```
 
-In order to build and run arm stuff on x86 locally you will need the following command: 
+In order to build and run arm stuff on x86 locally you will need the following command:
 
-```
+```text
 docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
 ```
-To build using the specific Dockerfiles: 
 
-```
+To build using the specific Dockerfiles:
+
+```text
 docker build -f Dockerfile.aarch64 -t testarm64 .
-docker build -f Dockerfile.armhf -t testarm .
 ```
+
 It is important to note that qemu emulation is not perfect, but it is very useful when you have no access to native arm hardware.
 
 #### Setting up a Jenkins Build Agent
 
 Jenkins build agents work by being accessible via SSH and having some core programs installed we use for the build process here are the steps to preparing a jenkins build agent:
 
-1. Install docker via the convenience script
-```
-curl -fsSL https://get.docker.com -o get-docker.sh
-sh get-docker.sh
-```
+1. Install Docker
+    - Follow the instructions for the appropriate OS from [these docs](https://docs.docker.com/engine/install/).
 2. Create a separate build agent container for each executor (customize the paths and the ports)
-```
-services:
-  build-agent-a:
-    image: lscr.io/linuxserver/build-agent:latest
-    privileged: true
-    container_name: build-agent-a
-    environment:
-      - TZ=Etc/UTC
-      - 'PUBLIC_KEY=<insert public key here>'
-    volumes:
-      - /docker-data/build-agent-a:/config
-    ports:
-      - 2222:2222
-    restart: unless-stopped
-  build-agent-b:
-    image: lscr.io/linuxserver/build-agent:latest
-    privileged: true
-    container_name: build-agent-b
-    environment:
-      - TZ=Etc/UTC
-      - 'PUBLIC_KEY=<insert public key here>'
-    volumes:
-      - /docker-data/build-agent-b:/config
-    ports:
-      - 2223:2222
-    restart: unless-stopped
-```
+
+    ```yaml
+    services:
+      build-agent-a:
+        image: lscr.io/linuxserver/build-agent:latest
+        privileged: true
+        container_name: build-agent-a
+        environment:
+          - TZ=Etc/UTC
+          - 'PUBLIC_KEY=<insert public key here>'
+        volumes:
+          - /docker-data/build-agent-a:/config
+        ports:
+          - 2222:2222
+        restart: unless-stopped
+      build-agent-b:
+        image: lscr.io/linuxserver/build-agent:latest
+        privileged: true
+        container_name: build-agent-b
+        environment:
+          - TZ=Etc/UTC
+          - 'PUBLIC_KEY=<insert public key here>'
+        volumes:
+          - /docker-data/build-agent-b:/config
+        ports:
+          - 2223:2222
+        restart: unless-stopped
+    ```
+
 3. In Jenkins, add each new build agent container as a single executor builder. Set the remote root directory to `/config/jenkins` and don't forget to set the unique port, which is hidden under the advanced button.
 4. *[X86_64 only]* To allow multi-arch builds first you need to register the interpreters with Docker and it needs to be done every time the docker host is re/started. This can be accomplished by creating a new systemd service (ie. `/lib/systemd/system/multiarch.service`) with the following content and enabling it via `sudo systemctl enable multiarch.service`. The command should now run every time the docker host is re/started:
 
-    ```
+    ```ini
     [Unit]
     Description=Multi-arch docker builds
     Requires=docker.service
@@ -550,12 +547,12 @@ services:
     WantedBy=multi-user.target
     ```
 
-
 #### Running from SSD on arm devices
 
-Arm devices often fail during long builds due to SD cards and poor IO. On most arm devices you can move the bootfs to an external SSD connected via a USB-SATA adapter, which yields much higher stability.  
+Arm devices often fail during long builds due to SD cards and poor IO. On most arm devices you can move the bootfs to an external SSD connected via a USB-SATA adapter, which yields much higher stability.
 
 Hardware needed:
+
 1. 128GB SSD (~$20)
 2. USB-SATA adapter (either needs to be a powered one, or it needs to be plugged into a powered USB hub because most arm devices do not have enough power to supply an external drive) ($10-$20)
 
