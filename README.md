@@ -541,7 +541,8 @@ Jenkins build agents work by being accessible via SSH and having some core progr
 
     [Service]
     Type=simple
-    ExecStart=/usr/bin/docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+    ExecStartPre=/usr/bin/docker pull linuxserver/qemu-static
+    ExecStart=/usr/bin/docker run --rm --privileged linuxserver/qemu-static --reset -p yes
 
     [Install]
     WantedBy=multi-user.target
