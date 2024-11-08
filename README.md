@@ -483,7 +483,7 @@ Dockerfile.aarch64
 In order to build and run arm stuff on x86 locally you will need the following command:
 
 ```text
-docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+docker run --rm --privileged lscr.io/linuxserver/qemu-static --reset -p yes
 ```
 
 To build using the specific Dockerfiles:
@@ -541,8 +541,8 @@ Jenkins build agents work by being accessible via SSH and having some core progr
 
     [Service]
     Type=simple
-    ExecStartPre=/usr/bin/docker pull linuxserver/qemu-static
-    ExecStart=/usr/bin/docker run --rm --privileged linuxserver/qemu-static --reset -p yes
+    ExecStartPre=/usr/bin/docker pull lscr.io/linuxserver/qemu-static
+    ExecStart=/usr/bin/docker run --rm --privileged lscr.io/linuxserver/qemu-static --reset -p yes
 
     [Install]
     WantedBy=multi-user.target
